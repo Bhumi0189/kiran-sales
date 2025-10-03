@@ -391,7 +391,7 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
           <div className="text-xs text-gray-400">No reviews yet</div>
         ) : (
           <ul className="space-y-1">
-            {reviews.slice(0, 2).map((r, idx) => (
+            {Array.isArray(reviews) && reviews.slice(0, 2).map((r, idx) => (
               <li key={idx} className="flex items-start gap-2 text-xs text-gray-700">
                 <span className="text-yellow-400 font-bold">
                   {'★'.repeat(r.rating || 0)}{'☆'.repeat(5 - (r.rating || 0))}
