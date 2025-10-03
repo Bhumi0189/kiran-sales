@@ -56,8 +56,10 @@ export async function GET() {
   try {
     const { db } = await connectToDatabase()
     const products = await db.collection("products").find({}).toArray()
-    return NextResponse.json(products)
+    // Always return an array, never an object
+    return NextResponse.json(Array.isArray(products) ? products : [])
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error("/api/products error:", error)
+    return NextResponse.json([], { status: 500 }) // Always return array
   }
 }

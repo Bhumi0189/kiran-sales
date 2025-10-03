@@ -61,7 +61,9 @@ function ProductsPage() {
   const { state } = useAuth();
   
   // Fetch products
-  const { data: products = [], error, isLoading } = useSWR("/api/products", fetcher);
+  const { data: productsRaw, error, isLoading } = useSWR("/api/products", fetcher);
+  // Defensive: ensure products is always an array
+  const products = Array.isArray(productsRaw) ? productsRaw : [];
 
   // Filter and sort products
   const filteredProducts = products
