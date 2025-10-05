@@ -28,6 +28,13 @@ export function OrdersTab() {
   const [filterDelivery, setFilterDelivery] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
 
+  // Safe formatter for currency values — ensures we don't call toLocaleString on undefined
+  const formatRupee = (v: any) => {
+    const n = typeof v === "number" ? v : Number(v ?? 0);
+    if (Number.isNaN(n)) return "0";
+    return n.toLocaleString();
+  };
+
   const statuses = [
     "pending",
     "confirmed",
@@ -364,7 +371,7 @@ export function OrdersTab() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-2xl font-bold text-gray-900">₹{total.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-gray-900">₹{formatRupee(total)}</p>
                       </div>
                     </div>
                   </div>
@@ -423,20 +430,20 @@ export function OrdersTab() {
                                     <div>
                                       <p className="font-semibold text-gray-900">{item.name}</p>
                                       <p className="text-sm text-gray-600">
-                                        Quantity: <span className="font-medium">{item.quantity}</span> × ₹{item.price.toLocaleString()}
+                                        Quantity: <span className="font-medium">{item.quantity}</span> × ₹{formatRupee(item.price)}
                                       </p>
                                     </div>
                                     <span className="font-bold text-lg text-gray-900">
-                                      ₹{(item.price * item.quantity).toLocaleString()}
+                                      ₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}
                                     </span>
                                   </div>
                                 ))}
-                                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg border-2 border-blue-300">
-                                  <span className="font-bold text-lg text-gray-900">Total Amount</span>
-                                  <span className="font-bold text-2xl text-blue-900">
-                                    ₹{selectedOrder.total || selectedOrder.totalAmount || 0}
-                                  </span>
-                                </div>
+                                        <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg border-2 border-blue-300">
+                                          <span className="font-bold text-lg text-gray-900">Total Amount</span>
+                                          <span className="font-bold text-2xl text-blue-900">
+                                            ₹{formatRupee(selectedOrder.total ?? selectedOrder.totalAmount ?? 0)}
+                                          </span>
+                                        </div>
                               </div>
                             </div>
 
