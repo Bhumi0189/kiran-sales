@@ -15,6 +15,7 @@ import { ArrowLeft, Truck } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { PaymentForm } from "@/components/payment/payment-form"
+import { formatRupee } from '@/lib/format'
 import { PaymentSuccess } from "@/components/payment/payment-success"
 import AddressSelect from "@/components/checkout/address-select"
 
@@ -327,7 +328,7 @@ export default function CheckoutPage() {
                         {item.size && <p className="text-xs text-gray-400">Size: {item.size}</p>}
                       </div>
                       <span className="font-semibold text-gray-900 text-sm">
-                        ₹{(item.price * item.quantity).toLocaleString()}
+                        ₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}
                       </span>
                     </div>
                   ))}
@@ -339,7 +340,7 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>₹{state.total.toLocaleString()}</span>
+                    <span>₹{formatRupee(state.total)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Shipping</span>
@@ -347,12 +348,12 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Tax</span>
-                    <span>₹{Math.round(state.total * 0.18).toLocaleString()}</span>
+                    <span>₹{formatRupee(Math.round(state.total * 0.18))}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
-                    <span className="text-blue-600">₹{Math.round(state.total * 1.18).toLocaleString()}</span>
+                    <span className="text-blue-600">₹{formatRupee(Math.round(state.total * 1.18))}</span>
                   </div>
                 </div>
 
@@ -368,7 +369,7 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <Truck className="w-4 h-4 mr-2" />
-                        Place Order - ₹{Math.round(state.total * 1.18).toLocaleString()}
+                        Place Order - ₹{formatRupee(Math.round(state.total * 1.18))}
                       </>
                     )}
                   </Button>

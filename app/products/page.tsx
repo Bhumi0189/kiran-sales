@@ -420,11 +420,11 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               <span className="text-2xl font-extrabold text-gray-900">
-                ₹{Number(product.price || 0).toLocaleString()}
+                ₹{formatRupee(product.price)}
               </span>
               {Number(product.originalPrice) > Number(product.price) && (
                 <span className="text-sm text-gray-500 line-through">
-                  ₹{Number(product.originalPrice || 0).toLocaleString()}
+                  ₹{formatRupee(product.originalPrice)}
                 </span>
               )}
             </div>

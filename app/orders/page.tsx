@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { ArrowLeft, Package, Eye, Download } from "lucide-react"
+import { formatRupee } from '@/lib/format'
 import Link from "next/link"
 
 // Mock orders data
@@ -131,7 +132,7 @@ export default function OrdersPage() {
                             <span className="text-gray-600">
                               {item.name} × {item.quantity}
                             </span>
-                            <span className="font-medium">₹{(item.price * item.quantity).toLocaleString()}</span>
+                            <span className="font-medium">₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}</span>
                           </div>
                         ))}
                       </div>
@@ -141,7 +142,7 @@ export default function OrdersPage() {
                     <div className="grid md:grid-cols-3 gap-4 pt-4 border-t">
                       <div>
                         <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="font-semibold text-lg">₹{order.total.toLocaleString()}</p>
+                        <p className="font-semibold text-lg">₹{formatRupee(order.total)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">Estimated Delivery</p>

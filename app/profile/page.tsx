@@ -16,6 +16,7 @@ import { ArrowLeft, User, Phone, Calendar, Save, Heart } from "lucide-react"
 import Link from "next/link"
 import WishlistTab from '@/components/profile/wishlist-tab'
 import AddressesTab from '@/components/profile/addresses-tab'
+import { formatRupee } from '@/lib/format'
 
 function ProfilePage() {
   const [sidebarTab, setSidebarTab] = useState('orders')
@@ -258,7 +259,7 @@ function ProfilePage() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge className="capitalize">{status}</Badge>
-                                <span className="font-semibold text-blue-900">₹{total.toLocaleString()}</span>
+                                <span className="font-semibold text-blue-900">₹{formatRupee(total)}</span>
                                 <Dialog>
                                   <DialogTrigger asChild>
                                     <Button variant="outline" size="sm" className="border-blue-900 text-blue-900">
@@ -280,7 +281,7 @@ function ProfilePage() {
                                                 <p className="font-medium">{item.name}</p>
                                                 <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
                                               </div>
-                                              <span className="font-semibold">₹{(item.price * item.quantity).toLocaleString()}</span>
+                                              <span className="font-semibold">₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}</span>
                                             </div>
                                           ))}
                                         </div>
@@ -296,7 +297,7 @@ function ProfilePage() {
                                         </div>
                                         <div>
                                           <p><strong>Status:</strong> {status}</p>
-                                          <p><strong>Total:</strong> ₹{total.toLocaleString()}</p>
+                                          <p><strong>Total:</strong> ₹{formatRupee(total)}</p>
                                         </div>
                                       </div>
                                     </div>
@@ -361,7 +362,7 @@ function ProfilePage() {
                                 </div>
                                 <div className="flex flex-col gap-1 mb-2 text-center">
                                   <div className="text-sm text-gray-600">Qty: {item.quantity}</div>
-                                  <div className="text-sm text-gray-600">Price: ₹{item.price?.toLocaleString()}</div>
+                                  <div className="text-sm text-gray-600">Price: ₹{formatRupee(item.price)}</div>
                                   <div className="text-xs text-gray-400">Order #{(order._id || order.id).slice(-8)}</div>
                                 </div>
                                 <div className="flex-1 flex items-end justify-center mt-2">
@@ -530,7 +531,7 @@ function ProductReviewDialog({ product, orderId, userId, userName }: { product: 
           <div>
             <div className="font-semibold text-gray-900 text-lg">{product.name}</div>
             <div className="text-sm text-gray-600">Qty: {product.quantity}</div>
-            <div className="text-sm text-gray-600">Price: ₹{product.price?.toLocaleString()}</div>
+            <div className="text-sm text-gray-600">Price: ₹{formatRupee(product.price)}</div>
             {product.description && <div className="text-xs text-gray-500 mt-1">{product.description}</div>}
           </div>
         </div>

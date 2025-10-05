@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CreditCard, Smartphone, Building, Truck, Shield, CheckCircle } from "lucide-react"
+import { formatRupee } from '@/lib/format'
 
 interface PaymentFormProps {
   paymentMethod: string
@@ -271,7 +272,7 @@ export function PaymentForm({
             <div className="flex items-center">
               <Truck className="w-5 h-5 text-green-600 mr-2" />
               <span className="text-sm text-green-800">
-                Pay ₹{Math.round(total * 1.18).toLocaleString()} when your order is delivered
+                Pay ₹{formatRupee(Math.round(total * 1.18))} when your order is delivered
               </span>
             </div>
           </div>
@@ -290,7 +291,7 @@ export function PaymentForm({
             onClick={handlePaymentSubmit}
             disabled={isProcessing}
           >
-            {isProcessing ? "Processing..." : `Pay ₹${Math.round(total * 1.18).toLocaleString()}`}
+            {isProcessing ? "Processing..." : `Pay ₹${formatRupee(Math.round(total * 1.18))}`}
           </Button>
         )}
       </CardContent>

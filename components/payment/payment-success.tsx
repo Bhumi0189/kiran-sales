@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Download, Mail, ArrowRight } from "lucide-react"
+import { formatRupee } from '@/lib/format'
 import Link from "next/link"
 
 interface PaymentSuccessProps {
@@ -54,7 +55,7 @@ export function PaymentSuccess({ orderData }: PaymentSuccessProps) {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount Paid:</span>
                   <span className="font-medium">
-                    ₹{typeof orderData.amount === "number" && !isNaN(orderData.amount) ? orderData.amount.toLocaleString() : "0"}
+                    ₹{typeof orderData.amount === "number" && !isNaN(orderData.amount) ? formatRupee(orderData.amount) : "0"}
                   </span>
                 </div>
                 <div className="flex justify-between">
