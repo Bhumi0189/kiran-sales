@@ -39,6 +39,12 @@ export default function ReviewsTab({ userId }: { userId: string }) {
         review
       }),
     })
+    // Notify admin section to refresh reviews
+    await fetch('/api/admin/refresh-reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: selectedProduct.orderId }),
+    });
     setReview('')
     setSelectedProduct(null)
     setRating(5)

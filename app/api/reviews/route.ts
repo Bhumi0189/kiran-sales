@@ -25,9 +25,12 @@ export async function POST(req: Request) {
     if (!productId || !userId || !orderId || !rating) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
-  const { db } = await connectToDatabase()
-    // Upsert review (one review per user per product per order)
-    await db.collection("reviews").updateOne(
+    const { db } = await connectToDatabase()
+
+    // Enhanced logging for POST endpoint
+    console.log("[POST] Incoming review data:", { productId, userId, orderId, rating, review, imageUrl, userName })
+
+    const result = await db.collection("reviews").updateOne(
       { productId, userId, orderId },
       {
         $set: {
@@ -44,6 +47,9 @@ export async function POST(req: Request) {
       },
       { upsert: true }
     )
+
+    console.log("[POST] Database operation result:", result)
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -60,12 +66,23 @@ export async function GET(req: Request) {
     const query: any = {}
     if (productId) query.productId = productId
     if (userId) query.userId = userId
+    // Ensure the query includes orderId if provided
     if (orderId) query.orderId = orderId
+
     if (!productId && !userId && !orderId) {
       return NextResponse.json({ error: "Missing productId, userId, or orderId" }, { status: 400 })
     }
     const { db } = await connectToDatabase()
+
+    // Enhanced logging for GET endpoint
+    console.log("[GET] Query parameters:", { productId, userId, orderId })
+
+    // Fetch reviews from the database
     const reviews = await db.collection("reviews").find(query).sort({ createdAt: -1 }).toArray()
+
+    // Log the fetched reviews for debugging
+    console.log("[GET] Fetched reviews for orderId:", orderId, reviews)
+
     return NextResponse.json(reviews)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Search, Filter, Eye, Package, Clock, CheckCircle2, XCircle, Truck, MapPin } from "lucide-react"
+import { formatRupee } from '@/lib/format';
 
 interface OrderItem {
   productId?: string
@@ -63,12 +64,6 @@ export function OrdersTab() {
   const [filterPayment, setFilterPayment] = useState("all")
   const [filterDelivery, setFilterDelivery] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-
-  const formatRupee = (v: any) => {
-    const n = typeof v === "number" ? v : Number(v ?? 0)
-    if (Number.isNaN(n)) return "0"
-    return n.toLocaleString()
-  }
 
   const statuses = [
     "pending",
