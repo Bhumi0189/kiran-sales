@@ -29,14 +29,23 @@ export async function POST(req: Request) {
     const { db } = await connectToDatabase();
     const body = await req.json();
 
-    // Ensure size and color are included in the order
-    if (!body.size || !body.color) {
-      return NextResponse.json({ error: "Size and color are required for the order." }, { status: 400 });
+
+    // Validate that each item has size and color if needed
+    if (Array.isArray(body.items)) {
+      for (const item of body.items) {
+        if (!item.size || !item.color) {
+          console.error("Validation failed: Missing size or color in item", item);
+          return NextResponse.json({ error: "Each order item must have size and color." }, { status: 400 });
+        }
+      }
     }
 
+    // Insert the order into the database
     const result = await db.collection("orders").insertOne(body);
+    console.log("Order inserted successfully", result);
     return NextResponse.json({ insertedId: result.insertedId }, { status: 201 })
   } catch (error: any) {
+    console.error("Error inserting order", error);
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

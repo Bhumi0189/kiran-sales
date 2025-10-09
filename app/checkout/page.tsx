@@ -42,6 +42,28 @@ export default function CheckoutPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
+
+  // Calculate estimated delivery date (7-10 business days from now)
+  const getEstimatedDelivery = () => {
+    const today = new Date()
+    const minDays = 7
+    const maxDays = 10
+    const minDate = new Date(today)
+    const maxDate = new Date(today)
+    minDate.setDate(today.getDate() + minDays)
+    maxDate.setDate(today.getDate() + maxDays)
+    
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('en-IN', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      })
+    }
+    
+    return `${formatDate(minDate)} - ${formatDate(maxDate)}`
+  }
+
   // When address is selected, auto-fill formData
   const handleAddressSelect = (addr: any) => {
     setSelectedAddress(addr)
@@ -61,6 +83,10 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     // Simulate payment gateway confirmation
     await new Promise((resolve) => setTimeout(resolve, 1000))
+    
+    const totalAmount = Math.round(state.total * 1.18)
+    const estimatedDelivery = getEstimatedDelivery()
+    
     const order = {
       orderId: `ORD-${Date.now()}`,
       userId: authState.user?.id,
@@ -75,22 +101,28 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price,
         id: item.id,
+        size: item.size || "Not Specified",
+        color: item.color || "Not Specified",
       })),
-      totalAmount: Math.round(state.total * 1.18),
+      totalAmount: totalAmount,
+      amountPaid: totalAmount, // Full amount paid for online payment
       paymentStatus: "Paid",
       paymentMethod: formData.paymentMethod,
       transactionId: paymentData.transactionId,
       orderDate: new Date().toISOString(),
+      estimatedDelivery: estimatedDelivery,
       shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
+    
     // Save order to backend
     await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     })
+    
     setOrderData(order)
     setOrderPlaced(true)
     dispatch({ type: "CLEAR_CART" })
@@ -100,6 +132,10 @@ export default function CheckoutPage() {
   const handleCODOrder = async () => {
     setIsProcessing(true)
     await new Promise((resolve) => setTimeout(resolve, 2000))
+    
+    const totalAmount = Math.round(state.total * 1.18)
+    const estimatedDelivery = getEstimatedDelivery()
+    
     const order = {
       orderId: `ORD-${Date.now()}`,
       userId: authState.user?.id,
@@ -114,20 +150,26 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price,
         id: item.id,
+        size: item.size || "Not Specified",
+        color: item.color || "Not Specified",
       })),
-      totalAmount: Math.round(state.total * 1.18),
-      paymentStatus: "Pending",
+      totalAmount: totalAmount,
+      amountPaid: 0, // No payment collected yet for COD
+      paymentStatus: "Pending", // Payment pending for COD
       paymentMethod: "cod",
       orderDate: new Date().toISOString(),
+      estimatedDelivery: estimatedDelivery,
       shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
+    
     await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     })
+    
     setOrderData(order)
     setOrderPlaced(true)
     dispatch({ type: "CLEAR_CART" })

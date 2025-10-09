@@ -14,14 +14,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Search, Filter, Eye, Package, Clock, CheckCircle2, XCircle, Truck, MapPin } from "lucide-react"
-import { formatRupee } from '@/lib/format';
+import { Search, Filter, Eye, Package, Clock, CheckCircle2, XCircle, Truck, MapPin, User, Mail, Phone } from "lucide-react"
 
 interface OrderItem {
   productId?: string
   name: string
   quantity: number
   price: number
+  size?: string
+  color?: string
 }
 
 interface Order {
@@ -64,6 +65,7 @@ export function OrdersTab() {
   const [filterPayment, setFilterPayment] = useState("all")
   const [filterDelivery, setFilterDelivery] = useState("all")
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const statuses = [
     "pending",
@@ -81,39 +83,40 @@ export function OrdersTab() {
   }
 
   React.useEffect(() => {
-    let isMounted = true
-    let interval: NodeJS.Timeout
+    let isMounted = true;
+    let interval: NodeJS.Timeout;
 
     const fetchOrders = async (isInitial = false) => {
       try {
-        if (!isMounted) return
-        if (isInitial) setLoading(true)
-        
+        if (!isMounted) return;
+        if (isInitial) setLoading(true);
+
         const res = await fetch("/api/orders", {
           headers: {
             authorization: "Bearer admin-token",
           },
-        })
-        if (!res.ok) throw new Error("Failed to fetch orders")
-        const data = await res.json()
+        });
+        if (!res.ok) throw new Error("Failed to fetch orders");
+        const data = await res.json();
+
         if (isMounted) {
-          setOrders(Array.isArray(data) ? data : [])
+          setOrders(Array.isArray(data) ? data : []);
         }
       } catch (error) {
-        console.error("Error fetching orders:", error)
-        if (isMounted) setOrders([])
+        console.error("Error fetching orders:", error);
+        if (isMounted) setOrders([]);
       } finally {
-        if (isInitial && isMounted) setLoading(false)
+        if (isInitial && isMounted) setLoading(false);
       }
-    }
+    };
 
-    fetchOrders(true)
-    interval = setInterval(() => fetchOrders(false), 5000)
+    fetchOrders(true);
+    interval = setInterval(() => fetchOrders(false), 5000);
 
     return () => {
-      isMounted = false
-      clearInterval(interval)
-    }
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [])
 
   const filteredOrders = orders.filter((order) => {
@@ -380,208 +383,165 @@ export function OrdersTab() {
       </Card>
 
       <div className="space-y-3">
-        {sortedOrders.map((order) => {
-          const orderId = getOrderId(order)
-          const customerName = order.customer?.name || order.customerName || ""
-          const customerEmail = order.customer?.email || order.customerEmail || ""
-          const customerPhone = order.customer?.phone || order.customerPhone || ""
-          const status = order.status || order.deliveryStatus || "pending"
-          const total = order.total || order.totalAmount || 0
-          const orderDate = order.orderDate ? new Date(order.orderDate) : null
-          const isDelivered = status === "delivered"
-          
-          return (
-            <Card key={orderId} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-bold text-gray-900">#{orderId}</h3>
-                          <Badge className={`${getStatusColor(status)} border flex items-center gap-1`}>
-                            {getStatusIcon(status)}
-                            {status.toUpperCase()}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">Customer:</span>
-                            <span className="text-gray-900">{customerName}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">Email:</span>
-                            <span className="text-gray-600">{customerEmail}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">Phone:</span>
-                            <span className="text-gray-600">{customerPhone}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">Date:</span>
-                            <span className="text-gray-600">{orderDate ? orderDate.toLocaleDateString() : "-"}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-2xl font-bold text-gray-900">₹{formatRupee(total)}</p>
-                      </div>
+        {sortedOrders.map((order) => (
+          <Card key={getOrderId(order)} className="shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-bold text-lg text-gray-900">
+                      Order #{getOrderId(order).slice(-8)}
+                    </h3>
+                    <Badge className={`${getStatusColor(order.status || "pending")} flex items-center gap-1`}>
+                      {getStatusIcon(order.status || "pending")}
+                      {(order.status || "pending").charAt(0).toUpperCase() + (order.status || "pending").slice(1)}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Customer</p>
+                      <p className="font-medium text-gray-900">
+                        {order.customer?.name || order.customerName || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Date</p>
+                      <p className="font-medium text-gray-900">
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Total</p>
+                      <p className="font-bold text-gray-900">
+                        ₹{(order.totalAmount || order.total || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Payment</p>
+                      <p className="font-medium text-gray-900">
+                        {order.paymentMethod || order.paymentStatus || "N/A"}
+                      </p>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="gap-2" onClick={() => setSelectedOrder(order)}>
-                          <Eye className="w-4 h-4" />
-                          View Details
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle className="text-2xl">Order Details - #{orderId}</DialogTitle>
-                          <DialogDescription>Complete order information</DialogDescription>
-                        </DialogHeader>
-                        {selectedOrder && getOrderId(selectedOrder) === orderId && (
-                          <div className="space-y-6">
-                            <div>
-                              <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                                <MapPin className="w-5 h-5 text-blue-600" />
-                                Customer Information
-                              </h4>
-                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-lg space-y-2 border border-blue-100">
-                                <p className="flex justify-between">
-                                  <strong className="text-gray-700">Name:</strong> 
-                                  <span className="text-gray-900">{selectedOrder.customer?.name || selectedOrder.customerName || ""}</span>
-                                </p>
-                                <p className="flex justify-between">
-                                  <strong className="text-gray-700">Email:</strong> 
-                                  <span className="text-gray-900">{selectedOrder.customer?.email || selectedOrder.customerEmail || ""}</span>
-                                </p>
-                                <p className="flex justify-between">
-                                  <strong className="text-gray-700">Phone:</strong> 
-                                  <span className="text-gray-900">{selectedOrder.customer?.phone || selectedOrder.customerPhone || ""}</span>
-                                </p>
-                              </div>
+                </div>
+                <Dialog open={isDialogOpen && selectedOrder === order} onOpenChange={(open) => {
+                  setIsDialogOpen(open)
+                  if (!open) setSelectedOrder(null)
+                }}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setSelectedOrder(order)
+                        setIsDialogOpen(true)
+                      }}
+                      className="ml-4"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Details
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl">Order Details #{getOrderId(order).slice(-8)}</DialogTitle>
+                      <DialogDescription>
+                        Complete information about this order
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6">
+                      {/* Customer Information */}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                          <User className="w-5 h-5" />
+                          Customer Information
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-600">Name:</span>
+                            <span className="font-medium">{order.customer?.name || order.customerName || "N/A"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-600">Email:</span>
+                            <span className="font-medium">{order.customer?.email || order.customerEmail || "N/A"}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-gray-500" />
+                            <span className="text-gray-600">Phone:</span>
+                            <span className="font-medium">{order.customer?.phone || order.customerPhone || "N/A"}</span>
+                          </div>
+                          {order.shippingAddress && (
+                            <div className="flex items-start gap-2 md:col-span-2">
+                              <MapPin className="w-4 h-4 text-gray-500 mt-1" />
+                              <span className="text-gray-600">Address:</span>
+                              <span className="font-medium flex-1">{order.shippingAddress}</span>
                             </div>
+                          )}
+                        </div>
+                      </div>
 
-                            <div>
-                              <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                                <Package className="w-5 h-5 text-blue-600" />
-                                Order Items
-                              </h4>
-                              <div className="space-y-3">
-                                {selectedOrder.items?.map((item: OrderItem, index: number) => (
-                                  <div
-                                    key={index}
-                                    className="flex justify-between items-center p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
-                                  >
-                                    <div>
-                                      <p className="font-semibold text-gray-900">{item.name}</p>
-                                      <p className="text-sm text-gray-600">
-                                        Quantity: <span className="font-medium">{item.quantity}</span> × ₹{formatRupee(item.price)}
-                                      </p>
-                                    </div>
-                                    <span className="font-bold text-lg text-gray-900">
-                                      ₹{formatRupee(item.price * item.quantity)}
-                                    </span>
+                      {/* Order Items */}
+                      <div>
+                        <h4 className="font-bold text-lg mb-3">Order Items</h4>
+                        <div className="space-y-2">
+                          {order.items?.map((item, index) => (
+                            <div key={index} className="border rounded-lg p-4 bg-white hover:bg-gray-50 transition-colors">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <p className="font-semibold text-gray-900">{item.name || "Unnamed Product"}</p>
+                                  <div className="flex gap-4 mt-1 text-sm text-gray-600">
+                                    <span>Size: {item.size || "N/A"}</span>
+                                    <span>Color: {item.color || "N/A"}</span>
+                                    <span>Quantity: {item.quantity || 0}</span>
                                   </div>
-                                ))}
-                                <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg border-2 border-blue-300">
-                                  <span className="font-bold text-lg text-gray-900">Total Amount</span>
-                                  <span className="font-bold text-2xl text-blue-900">
-                                    ₹{formatRupee(selectedOrder.total || selectedOrder.totalAmount || 0)}
-                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-bold text-gray-900">₹{(item.price || 0).toLocaleString()}</p>
+                                  <p className="text-sm text-gray-500">per item</p>
                                 </div>
                               </div>
                             </div>
-
-                            {selectedOrder.shippingAddress && (
-                              <div>
-                                <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                                  <Truck className="w-5 h-5 text-blue-600" />
-                                  Shipping Address
-                                </h4>
-                                <p className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border border-green-200 text-gray-800">
-                                  {selectedOrder.shippingAddress}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-                          <Package className="w-4 h-4" />
-                          Update Status
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="text-xl">Update Order Status</DialogTitle>
-                          <DialogDescription>Change the status for order #{orderId}</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-3 py-4">
-                          <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                            <p className="text-sm text-gray-600">Current Status</p>
-                            <Badge className={`${getStatusColor(status)} border mt-1`}>
-                              {status.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">Select New Status:</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {statuses.map((statusOption) => (
-                              <Button
-                                key={statusOption}
-                                variant={status === statusOption ? "default" : "outline"}
-                                size="sm"
-                                className={`h-auto py-3 ${
-                                  statusOption === "drop" 
-                                    ? "bg-orange-500 text-white hover:bg-orange-600" 
-                                    : statusOption === "cancelled"
-                                    ? "hover:bg-red-50"
-                                    : "hover:bg-blue-50"
-                                }`}
-                                onClick={() => updateOrderStatus(orderId, statusOption)}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {getStatusIcon(statusOption)}
-                                  {statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
-                                </span>
-                              </Button>
-                            ))}
-                          </div>
+                          ))}
                         </div>
-                      </DialogContent>
-                    </Dialog>
+                      </div>
 
-                    {isDelivered && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" className="gap-2 border-green-300 text-green-700 hover:bg-green-50">
-                            <CheckCircle2 className="w-4 h-4" />
-                            Reviews
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle className="text-xl">Customer Reviews - #{orderId}</DialogTitle>
-                            <DialogDescription>Product reviews for this order</DialogDescription>
-                          </DialogHeader>
-                          <OrderReviews order={order} />
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                      {/* Status Update */}
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h4 className="font-bold text-lg mb-3">Update Order Status</h4>
+                        <div className="flex items-center gap-3">
+                          <Select 
+                            value={order.status || "pending"} 
+                            onValueChange={(newStatus) => updateOrderStatus(getOrderId(order), newStatus)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statuses.map((status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Reviews Section */}
+                      <div>
+                        <h4 className="font-bold text-lg mb-3">Product Reviews</h4>
+                        <OrderReviews order={order} />
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
         {sortedOrders.length === 0 && (
           <Card className="shadow-md">

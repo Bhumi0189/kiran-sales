@@ -279,11 +279,40 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
       onLoginClick()
       return
     }
-    dispatch({
-      type: "ADD_ITEM",
-      payload: { product, size: selectedSize, color: selectedColor },
+    // Send POST request to backend with product, size, color, and user details
+    fetch("/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        productId: product._id || product.id,
+        size: selectedSize,
+        color: selectedColor,
+        userEmail: state.user.email,
+      }),
     })
-    router.push("/checkout")
+    .then((res) => {
+      if (res.ok) {
+        // If order is successful, redirect to checkout page
+        router.push("/checkout")
+      } else {
+        // Handle error (e.g., show toast notification)
+        toast({
+          title: "Order Error",
+          description: "Failed to create order. Please try again.",
+          variant: "destructive",
+        })
+      }
+    })
+    .catch((error) => {
+      console.error("Order error:", error)
+      toast({
+        title: "Order Error",
+        description: "Failed to create order. Please try again.",
+        variant: "destructive",
+      })
+    })
   }
 
   const handleWishlist = async () => {

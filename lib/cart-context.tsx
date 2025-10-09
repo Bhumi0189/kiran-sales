@@ -6,6 +6,13 @@ import { useAuth } from "./auth-context"
 type CartItem = {
   product: any
   quantity: number
+  id: string
+  size?: string
+  color?: string
+  image?: string
+  name: string
+  category?: string
+  price: number
 }
 
 type CartState = {
@@ -39,7 +46,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         updatedItems = [...state.items]
         updatedItems[existingItemIndex].quantity += 1
       } else {
-        updatedItems = [...state.items, { product: action.payload.product, quantity: 1 }]
+        updatedItems = [...state.items, { product: { ...action.payload.product, price: action.payload.product.price || 0 }, quantity: 1 }]
       }
       const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
       const total = updatedItems.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0)
