@@ -9,6 +9,12 @@ export async function POST(req: Request) {
     const client = await getMongoClient()
     const db = client.db(dbName)
     const body = await req.json()
+
+    // Validate sizes and colors
+    if (!Array.isArray(body.sizes) || !Array.isArray(body.colors)) {
+      return NextResponse.json({ error: "Invalid sizes or colors format" }, { status: 400 })
+    }
+
     const result = await db.collection("products").insertOne(body)
     return NextResponse.json({ insertedId: result.insertedId }, { status: 201 })
   } catch (error: any) {
@@ -23,6 +29,15 @@ export async function PUT(req: Request) {
     const db = client.db(dbName)
     const body = await req.json()
     const { _id, ...update } = body
+
+    // Validate sizes and colors if present
+    if (update.sizes && !Array.isArray(update.sizes)) {
+      return NextResponse.json({ error: "Invalid sizes format" }, { status: 400 })
+    }
+    if (update.colors && !Array.isArray(update.colors)) {
+      return NextResponse.json({ error: "Invalid colors format" }, { status: 400 })
+    }
+
     const result = await db.collection("products").updateOne({ _id: new ObjectId(_id) }, { $set: update })
     return NextResponse.json({ modifiedCount: result.modifiedCount })
   } catch (error: any) {

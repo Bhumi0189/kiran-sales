@@ -26,9 +26,15 @@ async function connectToDatabase() {
 
 export async function POST(req: Request) {
   try {
-    const { db } = await connectToDatabase()
-    const body = await req.json()
-    const result = await db.collection("orders").insertOne(body)
+    const { db } = await connectToDatabase();
+    const body = await req.json();
+
+    // Ensure size and color are included in the order
+    if (!body.size || !body.color) {
+      return NextResponse.json({ error: "Size and color are required for the order." }, { status: 400 });
+    }
+
+    const result = await db.collection("orders").insertOne(body);
     return NextResponse.json({ insertedId: result.insertedId }, { status: 201 })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

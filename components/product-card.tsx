@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCart } from '@/lib/cart-context'
-import { formatRupee } from '@/lib/format'
+import { formatRupee } from '../lib/format';
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/hooks/use-toast'
 import useSWR from 'swr'
@@ -166,10 +166,18 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
         </div>
         <div className="p-4 text-center">
           <h3 className="font-medium text-gray-900 mb-2 text-sm">{product.name}</h3>
-          <p className="text-lg font-bold text-gray-900">₹{formatRupee(product.price)}</p>
+          <p className="text-lg font-bold text-gray-900">
+            ₹{formatRupee(product.price)}
+          </p>
           {product.originalPrice > product.price && (
-            <p className="text-sm text-gray-500 line-through">₹{formatRupee(product.originalPrice)}</p>
+            <p className="text-sm text-gray-500 line-through">
+              ₹{formatRupee(product.originalPrice)}
+            </p>
           )}
+          <div className="mt-2">
+            <p className="text-sm text-gray-700">Sizes: {product.sizes?.join(", ") || "N/A"}</p>
+            <p className="text-sm text-gray-700">Colors: {product.colors?.join(", ") || "N/A"}</p>
+          </div>
         </div>
       </CardContent>
     </Card>

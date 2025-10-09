@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { AuthDialog } from "@/components/auth-dialog"
 import useSWR, { mutate as globalMutate } from "swr"
+import { formatRupee } from '@/lib/format';
 
 const categories = ["All", "Surgical Scrubs", "Doctor Coats", "O.T. Linen", "Nursing Wear"];
 
@@ -190,6 +191,10 @@ function ProductsPage() {
 
 export default ProductsPage;
 
+const sizes = ["S", "M", "L", "XL", "XXL"];
+const colors = ["Red", "Blue", "Green", "Black", "White"];
+
+// Add size and color selection to ProductCard
 function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; fallbackImage: string; onLoginClick: () => void }) {
   const { state } = useAuth()
   const { dispatch } = useCart()
@@ -200,7 +205,9 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [imageSrc, setImageSrc] = useState<string>(fallbackImage)
   const [imageError, setImageError] = useState(false)
-  
+  const [selectedSize, setSelectedSize] = useState(sizes[0]);
+  const [selectedColor, setSelectedColor] = useState(colors[0]);
+
   // Fetch wishlist for logged-in user
   const wishlistKey = state.user ? `/api/wishlist?email=${encodeURIComponent(state.user.email)}` : null
   const { data: wishlistDataRaw, mutate: mutateWishlist } = useSWR(wishlistKey, fetcher)
@@ -257,10 +264,13 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
       onLoginClick()
       return
     }
-    dispatch({ type: "ADD_ITEM", payload: { product } })
+    dispatch({
+      type: "ADD_ITEM",
+      payload: { product, size: selectedSize, color: selectedColor },
+    })
     toast({
       title: "Added to Cart!",
-      description: `${product.name} has been added to your cart.`,
+      description: `${product.name} (${selectedSize}, ${selectedColor}) has been added to your cart.`,
     })
   }
 
@@ -269,7 +279,10 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
       onLoginClick()
       return
     }
-    dispatch({ type: "ADD_ITEM", payload: { product } })
+    dispatch({
+      type: "ADD_ITEM",
+      payload: { product, size: selectedSize, color: selectedColor },
+    })
     router.push("/checkout")
   }
 
@@ -428,6 +441,26 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
                 </span>
               )}
             </div>
+          </div>
+          <div className="flex gap-2 mb-3">
+            <select
+              value={selectedSize}
+              onChange={(e) => setSelectedSize(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              {sizes.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+            <select
+              value={selectedColor}
+              onChange={(e) => setSelectedColor(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              {colors.map((color) => (
+                <option key={color} value={color}>{color}</option>
+              ))}
+            </select>
           </div>
           <div className="flex gap-2">
             <Button
