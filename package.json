@@ -6,8 +6,7 @@
   "scripts": {
     "preinstall": "corepack prepare pnpm@10.18.0 --activate",
   "build": "next build",
-  "vercel-build": "pnpm install --no-frozen-lockfile && pnpm run build",
-    "dev": "next dev",
+  "dev": "next dev",
     "lint": "next lint",
     "start": "next start"
   },
