@@ -18,13 +18,22 @@ async function connectToDatabase() {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const productId = searchParams.get("productId")
-  if (!productId) {
-    return NextResponse.json({ error: "Missing productId" }, { status: 400 })
+  const productIdsParam = searchParams.get("productIds")
+
+  if (!productIdsParam) {
+    return NextResponse.json({ error: "Missing productIds" }, { status: 400 })
   }
+
+  const productIds = productIdsParam.split(",").map((id) => id.trim())
+
   try {
     const { db } = await connectToDatabase()
-    const reviews = await db.collection("reviews").find({ productId }).sort({ createdAt: -1 }).toArray()
+    const reviews = await db
+      .collection("reviews")
+      .find({ productId: { $in: productIds } })
+      .sort({ createdAt: -1 })
+      .toArray()
+
     return NextResponse.json(reviews)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -9,6 +9,7 @@ export async function POST(req: Request) {
     const client = await getMongoClient()
     const db = client.db(dbName)
     const body = await req.json()
+    try { console.log('[app-route][products][POST] incoming body:', JSON.stringify(body)) } catch (e) { console.log('[app-route][products][POST] incoming body: <unserializable>') }
 
     // Validate sizes and colors
     if (!Array.isArray(body.sizes) || !Array.isArray(body.colors)) {

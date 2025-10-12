@@ -132,14 +132,18 @@ export default function InventoryManager() {
         const res = await fetch("/api/upload", { method: "POST", body: formData });
         if (res.ok) {
           const data = await res.json();
+          console.debug('Upload response:', data)
           if (data?.url) {
             imageUrl = data.url;
+            // Use the returned URL for the preview so admin sees the final image that will be saved
+            setImagePreview(imageUrl)
           } else {
             console.error("Upload succeeded but no URL returned");
             alert("Image uploaded but no URL returned. Using placeholder instead.");
           }
         } else {
-          console.error("Failed to upload image");
+          const text = await res.text()
+          console.error("Failed to upload image", text);
           alert("Failed to upload image. Using placeholder instead.");
         }
       } catch (error) {
@@ -158,6 +162,9 @@ export default function InventoryManager() {
       price,
       originalPrice,
       image: imageUrl,
+      // API expects sizes and colors arrays — provide empty arrays when not specified
+      sizes: [],
+      colors: [],
       category: newProduct.category?.trim() || "",
       subcategory: newProduct.subcategory?.trim() || "",
       stock,
@@ -166,14 +173,23 @@ export default function InventoryManager() {
     };
 
     try {
+      console.debug('Submitting product payload:', product)
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
       });
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || "Failed to add product");
+      const text = await res.text();
+      let ok = res.ok
+      try {
+        // try parse JSON
+        const json = JSON.parse(text)
+        console.debug('Create product response JSON:', json)
+      } catch (e) {
+        console.debug('Create product response text:', text)
+      }
+      if (!ok) {
+        throw new Error(text || "Failed to add product")
       }
       // Show toast on success
       toast({
@@ -334,7 +350,8 @@ export default function InventoryManager() {
                 </div>
                 {imagePreview && (
                   <div className="mt-1 flex justify-center">
-                    <Image src={imagePreview} alt="Preview" width={64} height={48} className="rounded border" />
+                    {/* Use a standard <img> for preview to support blob/object URLs and local /uploads paths reliably */}
+                    <img src={imagePreview} alt="Preview" width={128} height={96} className="rounded border object-contain" />
                   </div>
                 )}
               </div>

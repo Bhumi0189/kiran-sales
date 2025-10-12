@@ -232,7 +232,7 @@ export default function OrdersPage() {
                               </div>
                             </div>
                             <div className="font-semibold text-gray-900 text-right">
-                              ₹{formatRupee((item.price || 0) * (item.quantity || 0))}
+                              {formatRupee((item.price || 0) * (item.quantity || 0))}
                             </div>
                           </div>
                         ))}
@@ -255,7 +255,7 @@ export default function OrdersPage() {
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-600 mb-1">Total Amount</p>
                         <p className="font-bold text-xl text-blue-600">
-                          ₹{formatRupee(order.totalAmount || 0)}
+                          {formatRupee(order.totalAmount || 0)}
                         </p>
                         {order.paymentMethod === 'cod' && order.paymentStatus === 'Pending' && (
                           <p className="text-xs text-gray-500 mt-1">Pay on Delivery</p>
@@ -271,6 +271,14 @@ export default function OrdersPage() {
                         <p className="text-sm text-gray-600 mb-1">Tracking Number</p>
                         <p className="font-medium text-gray-900">
                           {order.trackingNumber || "Not assigned yet"}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-1">Customer Name</p>
+                        <p className="font-medium text-gray-900">
+                          {order.customer?.firstName && order.customer?.lastName
+                            ? `${order.customer.firstName} ${order.customer.lastName}`
+                            : "N/A"}
                         </p>
                       </div>
                     </div>

@@ -84,9 +84,61 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { items: [], itemCount: 0, total: 0 }
     }
     case "SET_ITEMS": {
-      const itemCount = action.payload.items.reduce((sum, item) => sum + item.quantity, 0)
-      const total = action.payload.items.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0)
-      return { items: action.payload.items, itemCount, total }
+      // Accept either { items: [...] } or an array passed directly for compatibility
+      const anyPayload: any = (action as any).payload
+      const itemsArray: any[] | null = Array.isArray(anyPayload?.items)
+        ? anyPayload.items
+        : Array.isArray(anyPayload)
+        ? anyPayload
+        : null
+
+      if (!itemsArray || !Array.isArray(itemsArray)) {
+        // Fallback: try to find any array inside the payload (e.g. payload.data.items or payload.orders)
+        let foundArray: any[] | null = null
+        let foundKey: string | null = null
+        if (anyPayload && typeof anyPayload === 'object') {
+          for (const [k, v] of Object.entries(anyPayload)) {
+            if (Array.isArray(v)) {
+              foundArray = v as any[]
+              foundKey = k
+              break
+            }
+            // nested check (one level deep)
+            if (v && typeof v === 'object') {
+              for (const [k2, v2] of Object.entries(v as any)) {
+                if (Array.isArray(v2)) {
+                  foundArray = v2 as any[]
+                  foundKey = `${k}.${k2}`
+                  break
+                }
+              }
+              if (foundArray) break
+            }
+          }
+        }
+
+        if (foundArray) {
+          console.warn(`SET_ITEMS received nonstandard payload; using array found at key '${foundKey}' to proceed.`, { payload: anyPayload })
+          // normalize and proceed
+          const normalized = foundArray.map((item: any) => ({ ...item, quantity: Number(item.quantity) || 0 }))
+          const itemCount = normalized.reduce((sum, item) => sum + item.quantity, 0)
+          const total = normalized.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0)
+          return { items: normalized, itemCount, total }
+        }
+
+        const ctx = { payload: anyPayload, location: typeof window !== 'undefined' ? window.location.href : 'server' }
+        let payloadStr = '<unserializable>'
+        try { payloadStr = JSON.stringify(anyPayload) } catch (e) { payloadStr = '<circular or unserializable payload>' }
+        console.error("Invalid payload for SET_ITEMS: `items` is missing or not an array.", { payloadStr, ctx }, new Error().stack)
+        return state // Return current state if payload is invalid
+      }
+
+      // Normalize quantities to numbers to avoid downstream NaN issues
+      const normalized = itemsArray.map((item: any) => ({ ...item, quantity: Number(item.quantity) || 0 }))
+
+      const itemCount = normalized.reduce((sum, item) => sum + item.quantity, 0)
+      const total = normalized.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0)
+      return { items: normalized, itemCount, total }
     }
     default:
       return state
@@ -106,9 +158,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     if (storedCart) {
       dispatch({ type: "CLEAR_CART" }) // Clear first to avoid duplication
       const parsedCart = JSON.parse(storedCart)
+      // Restore items including size and color
       parsedCart.items.forEach((item: CartItem) => {
         for (let i = 0; i < item.quantity; i++) {
-          dispatch({ type: "ADD_ITEM", payload: { product: item.product } })
+          dispatch({ type: "ADD_ITEM", payload: { product: item.product, size: item.size, color: item.color } })
         }
       })
     } else {

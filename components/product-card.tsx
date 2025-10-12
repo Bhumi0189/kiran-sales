@@ -14,43 +14,42 @@ import { useToast } from '@/hooks/use-toast'
 import useSWR from 'swr'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+const sizeOptions = ['S', 'M', 'L', 'Standard'];
+
+const dummyImages: string[] = [
+  "/surgical-scrubs-medical-uniform.jpg",
+  "/placeholder-user.jpg",
+  "/hospital-bed-linen-white-sterile.jpg",
+];
+
 const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLoginClick?: () => void }) => {
-  const { dispatch } = useCart()
-  const { toast } = useToast()
-  const { state } = useAuth()
-  const router = useRouter()
-  const [wishlistLoading, setWishlistLoading] = useState(false)
+  const { dispatch } = useCart();
+  const { toast } = useToast();
+  const { state } = useAuth();
+  const router = useRouter();
+  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [imageSrc, setImageSrc] = useState(() => {
-    const dummyImages = [
-      "/surgical-scrubs-medical-uniform.jpg",
-      "/white-doctor-coat-medical-uniform.jpg",
-      "/nurse-uniform-medical-scrubs.jpg",
-      "/medical-professionals-wearing-scrubs-hospital-unif.jpg",
-      "/hospital-bed-linen-sterile.jpg",
-      "/hospital-bed-linen-white-sterile.jpg",
-      "/white-doctor-coat-medical.jpg",
-      "/placeholder.jpg"
-    ];
     if (product.image && typeof product.image === "string" && product.image.trim() !== "" && product.image !== "/placeholder.svg") {
       return product.image;
     }
     const idx = (product._id || product.id || 0).toString().split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
     return dummyImages[idx % dummyImages.length];
-  })
-  
-  const wishlistKey = state.user ? `/api/wishlist?email=${encodeURIComponent(state.user.email)}` : null
+  });
+
+  const wishlistKey = state.user ? `/api/wishlist?email=${encodeURIComponent(state.user.email)}` : null;
   const { data: wishlistDataRaw, mutate: mutateWishlist } = useSWR(wishlistKey, null, {
     revalidateOnFocus: false,
-    revalidateOnReconnect: false
-  })
-  
-  const wishlistItems = Array.isArray(wishlistDataRaw?.items) ? wishlistDataRaw.items : []
-  const wishlisted = React.useMemo(() =>
-    !!wishlistItems.find((item: any) =>
-      (item.id === (product._id || product.id)) || (item._id === (product._id || product.id))
-    ),
+    revalidateOnReconnect: false,
+  });
+
+  const wishlistItems = Array.isArray(wishlistDataRaw?.items) ? wishlistDataRaw.items : [];
+  const wishlisted = React.useMemo(
+    () =>
+      !!wishlistItems.find((item: any) =>
+        (item.id === (product._id || product.id)) || (item._id === (product._id || product.id))
+      ),
     [wishlistItems, product._id, product.id]
-  )
+  );
 
   const [localWishlisted, setLocalWishlisted] = useState(wishlisted)
   const [selectedSize, setSelectedSize] = useState("M")
@@ -210,11 +209,11 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
         <div className="p-4 text-center">
           <h3 className="font-medium text-gray-900 mb-2 text-sm">{product.name}</h3>
           <p className="text-lg font-bold text-gray-900">
-            ₹{formatRupee(product.price)}
+            {formatRupee(product.price)}
           </p>
           {product.originalPrice > product.price && (
             <p className="text-sm text-gray-500 line-through">
-              ₹{formatRupee(product.originalPrice)}
+              {formatRupee(product.originalPrice)}
             </p>
           )}
           <div className="flex items-center justify-between mt-4">
@@ -226,7 +225,7 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
                 <SelectContent>
-                  {product.sizes.map((size) => (
+                  {sizeOptions.map((size: string) => (
                     <SelectItem key={size} value={size}>{size}</SelectItem>
                   ))}
                 </SelectContent>

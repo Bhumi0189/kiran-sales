@@ -18,11 +18,12 @@ import { PaymentForm } from "@/components/payment/payment-form"
 import { formatRupee } from '@/lib/format'
 import { PaymentSuccess } from "@/components/payment/payment-success"
 import AddressSelect from "@/components/checkout/address-select"
-import jsPDF from 'jspdf';
+// removed jsPDF/invoice download — handled via order details in admin
 
 export default function CheckoutPage() {
   const { state, dispatch } = useCart()
   const { state: authState } = useAuth()
+  const [displayedItems, setDisplayedItems] = useState<any[]>(state.items || [])
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [orderData, setOrderData] = useState<any>(null)
@@ -53,15 +54,15 @@ export default function CheckoutPage() {
     const maxDate = new Date(today)
     minDate.setDate(today.getDate() + minDays)
     maxDate.setDate(today.getDate() + maxDays)
-    
+
     const formatDate = (date: Date) => {
-      return date.toLocaleDateString('en-IN', { 
-        month: 'short', 
+      return date.toLocaleDateString('en-IN', {
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       })
     }
-    
+
     return `${formatDate(minDate)} - ${formatDate(maxDate)}`
   }
 
@@ -84,10 +85,26 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     // Simulate payment gateway confirmation
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    
-    const totalAmount = Math.round(state.total * 1.18)
+
+    // compute total from cart state or localStorage fallback
+    const computeTotal = () => {
+      const items = (state.items && state.items.length > 0) ? state.items : (() => {
+        try {
+          const userId = authState.user?.id
+          const cartKey = `cart_${userId || 'guest'}`
+          const stored = localStorage.getItem(cartKey)
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (parsed?.items && Array.isArray(parsed.items)) return parsed.items
+          }
+        } catch (e) {}
+        return []
+      })()
+      return items.reduce((sum: number, item: any) => sum + ((item.price || item.product?.price || 0) * (Number(item.quantity) || 1)), 0)
+    }
+    const totalAmount = Math.round(computeTotal() * 1.18)
     const estimatedDelivery = getEstimatedDelivery()
-    
+
     const order = {
       orderId: `ORD-${Date.now()}`,
       userId: authState.user?.id,
@@ -117,14 +134,15 @@ export default function CheckoutPage() {
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
-    
+
     // Save order to backend
+    console.debug('Creating order (POST /api/orders):', order)
     await fetch("/api/orders", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(authState.user?.token ? { Authorization: `Bearer ${authState.user.token}` } : {}) },
       body: JSON.stringify(order),
     })
-    
+
     setOrderData(order)
     setOrderPlaced(true)
     dispatch({ type: "CLEAR_CART" })
@@ -134,10 +152,25 @@ export default function CheckoutPage() {
   const handleCODOrder = async () => {
     setIsProcessing(true)
     await new Promise((resolve) => setTimeout(resolve, 2000))
-    
-    const totalAmount = Math.round(state.total * 1.18)
+
+    const computeTotal = () => {
+      const items = (state.items && state.items.length > 0) ? state.items : (() => {
+        try {
+          const userId = authState.user?.id
+          const cartKey = `cart_${userId || 'guest'}`
+          const stored = localStorage.getItem(cartKey)
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (parsed?.items && Array.isArray(parsed.items)) return parsed.items
+          }
+        } catch (e) {}
+        return []
+      })()
+      return items.reduce((sum: number, item: any) => sum + ((item.price || item.product?.price || 0) * (Number(item.quantity) || 1)), 0)
+    }
+    const totalAmount = Math.round(computeTotal() * 1.18)
     const estimatedDelivery = getEstimatedDelivery()
-    
+
     const order = {
       orderId: `ORD-${Date.now()}`,
       userId: authState.user?.id,
@@ -165,13 +198,15 @@ export default function CheckoutPage() {
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
-    
+
     await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(order),
     })
-    
+
+    console.debug('Created COD order (POST /api/orders):', order)
+
     setOrderData(order)
     setOrderPlaced(true)
     dispatch({ type: "CLEAR_CART" })
@@ -181,18 +216,32 @@ export default function CheckoutPage() {
   useEffect(() => {
     const fetchOrderData = async () => {
       try {
-        const response = await fetch("/api/orders", {
+        const emailQuery = encodeURIComponent(authState.user?.email || formData.email || "")
+        if (!emailQuery) {
+          console.warn('No email available to fetch orders')
+          return
+        }
+
+        const response = await fetch(`/api/orders?email=${emailQuery}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${authState.user?.token}` // Include token if available
+            ...(authState.user?.token ? { Authorization: `Bearer ${authState.user.token}` } : {}),
           },
         });
 
         if (!response.ok) {
+          // attempt to read body for debugging
+          let body = '';
+          try {
+            body = await response.text();
+          } catch (e) {
+            body = '<unreadable response body>';
+          }
           if (response.status === 401) {
             console.error("Unauthorized: Please check your authentication token.");
           }
+          console.error(`Failed to fetch /api/orders: ${response.status} ${response.statusText}`, body);
           throw new Error(`Error: ${response.status} - ${response.statusText}`);
         }
 
@@ -204,19 +253,52 @@ export default function CheckoutPage() {
     };
 
     fetchOrderData();
-  }, [authState.user?.token]);
+  }, [authState.user?.token, formData.email]);
 
   // Update the fetchCartItems function to ensure correct product details are fetched
   useEffect(() => {
     const fetchCartItems = async () => {
       try {
+        // Prefer local client-stored cart (preserves size/color) to avoid overwriting
+        // client-side selections due to race with server payloads.
+        const userId = authState.user?.id
+        const cartKey = `cart_${userId || 'guest'}`
+        try {
+          const stored = localStorage.getItem(cartKey)
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (parsed?.items && Array.isArray(parsed.items)) {
+              console.log('Using localStorage cart for checkout (preserves size/color):', parsed.items)
+              const updatedItems = (parsed.items as any[]).map((item: any) => ({
+                id: item.id || item.product?._id || item.product?.id,
+                name: item.name || item.product?.name,
+                quantity: Number(item.quantity) || 0,
+                price: item.price || item.product?.price,
+                size: item.size || item.defaultSize || item.product?.size || "Unknown",
+                color: item.color || item.defaultColor || item.product?.color || "Unknown",
+                image: item.image || item.product?.image,
+                category: item.category || item.product?.category,
+                product: item.product || { _id: item.id, name: item.name, price: item.price, image: item.image, category: item.category },
+              }))
+
+              const payload = { items: updatedItems }
+              console.log("Dispatching SET_ITEMS payload (from localStorage):", payload)
+              dispatch({ type: "SET_ITEMS", payload })
+              return
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to read cart from localStorage, falling back to /api/cart', e)
+        }
+
+        // No local cart found — fall back to server endpoint
         const response = await fetch("/api/cart", {
-          method: "GET", // Changed from POST to GET based on backend requirements
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${authState.user?.token}` // Include token if available
+            ...(authState.user?.token ? { Authorization: `Bearer ${authState.user.token}` } : {}),
           },
-        });
+        })
 
         if (!response.ok) {
           if (response.status === 405) {
@@ -226,21 +308,43 @@ export default function CheckoutPage() {
         }
 
         const data = await response.json();
-        console.log("Fetched cart items:", data); // Debugging log to inspect fetched data
+        console.log("Fetched cart items (raw):", data); // Log raw data for debugging
+
+        // Extra debug: log items and type
+        console.log("data.items ->", (data as any).items, "isArray:", Array.isArray((data as any).items));
+
+        if (!data.items || !Array.isArray(data.items)) {
+          console.error("Invalid cart data: `items` is missing or not an array.", data);
+          return;
+        }
 
         // Ensure real-time data for size and color is passed and displayed
-        const updatedItems = data.items.map((item: any) => ({
+        const updatedItems = (data.items as any[]).map((item: any) => ({
           id: item.id,
           name: item.name,
-          quantity: item.quantity,
+          quantity: Number(item.quantity) || 0,
           price: item.price,
-          size: item.size || item.defaultSize || "Unknown", // Ensure size is passed correctly
-          color: item.color || item.defaultColor || "Unknown", // Ensure color is passed correctly
+          size: item.size || item.defaultSize || "Unknown",
+          color: item.color || item.defaultColor || "Unknown",
           image: item.image,
           category: item.category,
+          product: {
+            _id: item.id,
+            name: item.name,
+            price: item.price,
+            image: item.image,
+            category: item.category,
+          },
         }));
 
-        dispatch({ type: "SET_ITEMS", payload: updatedItems }); // Update cart state with fetched items
+        const payload = { items: updatedItems };
+        console.log("Dispatching SET_ITEMS payload:", payload, "items is array:", Array.isArray(payload.items), "length:", payload.items.length);
+
+        if (Array.isArray(payload.items)) {
+          dispatch({ type: "SET_ITEMS", payload }); // Update cart state with fetched items
+        } else {
+          console.error("Won't dispatch SET_ITEMS because payload.items is not an array:", payload);
+        }
       } catch (error) {
         console.error("Failed to fetch cart items:", error);
       }
@@ -248,22 +352,35 @@ export default function CheckoutPage() {
 
     fetchCartItems();
   }, [authState.user?.token, dispatch]);
-
-  const handleDownloadInvoice = () => {
-    if (!orderData || !orderData.orderId) {
-      console.error("Order data is missing or incomplete.");
-      return;
+  // Keep displayedItems in state; hydrate it from context or localStorage on the client
+  useEffect(() => {
+    if (state.items && state.items.length > 0) {
+      setDisplayedItems(state.items.map((item: any) => ({ ...item, product: item.product || { _id: item.id, name: item.name, price: item.price, image: item.image, category: item.category } })))
+      return
     }
 
-    const doc = new jsPDF();
-    doc.text('Invoice', 10, 10);
-    doc.text(`Order ID: ${orderData.orderId}`, 10, 20);
-    doc.text(`Amount Paid: ₹${orderData.amountPaid}`, 10, 30);
-    doc.text(`Payment Method: ${orderData.paymentMethod}`, 10, 40);
-    doc.text(`Estimated Delivery: ${orderData.estimatedDelivery}`, 10, 50);
-    doc.text(`Shipping Address: ${orderData.shippingAddress}`, 10, 60);
-    doc.save(`Invoice_${orderData.orderId}.pdf`);
-  };
+    // client-only localStorage fallback
+    try {
+      const userId = authState.user?.id
+      const cartKey = `cart_${userId || 'guest'}`
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(cartKey) : null
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.items && Array.isArray(parsed.items)) {
+          const items = parsed.items.map((item: any) => ({
+            ...item,
+            product: item.product || { _id: item.id, name: item.name, price: item.price, image: item.image, category: item.category },
+          }))
+          setDisplayedItems(items)
+          return
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to read fallback cart from localStorage for display:', e)
+    }
+  }, [state.items, authState.user?.id])
+
+  // Invoice download removed — admin/order details will provide order exports if needed.
 
   // Ensure the `amountPaid` field is correctly calculated and passed in the order object
   const totalAmount = Math.round(state.total * 1.18);
@@ -278,7 +395,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (state.items.length === 0) {
+  if (!displayedItems || displayedItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="container mx-auto px-4 max-w-2xl">
@@ -403,6 +520,7 @@ export default function CheckoutPage() {
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="madhya pradesh">Madhya Pradesh</SelectItem>
                         <SelectItem value="maharashtra">Maharashtra</SelectItem>
                         <SelectItem value="delhi">Delhi</SelectItem>
                         <SelectItem value="karnataka">Karnataka</SelectItem>
@@ -467,7 +585,7 @@ export default function CheckoutPage() {
                         <p className="text-xs text-gray-500">Category: {item.category || "Not Specified"}</p>
                         <p className="text-xs text-gray-400">Size: {item.size || "Unknown"}</p> {/* Correctly display size */}
                         <p className="text-xs text-gray-400">Color: {item.color || "Unknown"}</p> {/* Correctly display color */}
-                        <p className="text-xs text-gray-400">Amount: ₹{formatRupee((item.price || 0) * (item.quantity || 1))}</p>
+                        <p className="text-xs text-gray-400">Amount: {formatRupee((item.price || 0) * (item.quantity || 1))}</p>
                       </div>
                     </div>
                   ))}
@@ -487,12 +605,12 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Tax</span>
-                    <span>₹{formatRupee(Math.round(state.total * 0.18))}</span>
+                    <span>{formatRupee(Math.round(state.total * 0.18))}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-semibold text-lg">
                     <span>Total</span>
-                    <span className="text-blue-600">₹{formatRupee(Math.round(state.total * 1.18))}</span>
+                    <span className="text-blue-600">{formatRupee(Math.round(state.total * 1.18))}</span>
                   </div>
                 </div>
 
@@ -514,21 +632,13 @@ export default function CheckoutPage() {
                     ) : (
                       <>
                         <Truck className="w-4 h-4 mr-2" />
-                        Place Order - ₹{formatRupee(Math.round(state.total * 1.18))}
+                        Place Order - {formatRupee(Math.round(state.total * 1.18))}
                       </>
                     )}
                   </Button>
                 )}
 
-                {/* Invoice Download Button */}
-                {orderData && (
-                  <Button
-                    onClick={handleDownloadInvoice}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    Download Invoice
-                  </Button>
-                )}
+                {/* Invoice Download removed */}
 
                 <div className="text-xs text-gray-500 text-center">
                   By placing your order, you agree to our Terms of Service and Privacy Policy.

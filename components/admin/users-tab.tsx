@@ -10,6 +10,7 @@ import { Search, Mail, Phone, Calendar, Shield, User } from "lucide-react"
 
 interface User {
   id: string
+  _id?: string
   firstName: string
   lastName: string
   email: string
@@ -50,46 +51,68 @@ export function UsersTab() {
         if (isMounted) {
           const usersArray = Array.isArray(data) ? data : []
           
-          // Fetch all orders once
-          const ordersRes = await fetch("/api/orders", {
+          // Fetch aggregated stats from admin endpoint
+          const statsRes = await fetch("/api/admin/users/stats", {
             headers: { authorization: "Bearer admin-token" },
           })
-          
-          let allOrders = []
-          if (ordersRes.ok) {
-            const ordersData = await ordersRes.json()
-            allOrders = Array.isArray(ordersData) ? ordersData : []
+
+          let stats: any[] = []
+          if (statsRes.ok) {
+            const statsData = await statsRes.json()
+            stats = Array.isArray(statsData?.stats) ? statsData.stats : []
           }
-          
-          // Calculate stats for each user individually
-          const usersWithStats = usersArray.map((user) => {
-            // Only calculate for customers
-            if (user.role === "customer") {
-              // Filter orders that belong ONLY to this specific user
-              const userOrders = allOrders.filter((order: any) => {
-                // Get the user ID from the order (check multiple possible fields)
-                const orderUserId = order.userId || order.customerId || order.customer?.id || order.customer?._id
-                const orderUserEmail = order.customerEmail || order.customer?.email
-                
-                // Match by ID or email
-                const matchesById = orderUserId && (orderUserId === user.id || orderUserId === user._id)
-                const matchesByEmail = orderUserEmail && orderUserEmail === user.email
-                
-                return matchesById || matchesByEmail
-              })
-              
-              // Calculate this user's specific totals
-              const totalOrders = userOrders.length
-              const totalSpent = userOrders.reduce((sum: number, order: any) => {
-                const orderAmount = order.total || order.totalAmount || 0
-                return sum + orderAmount
-              }, 0)
-              
-              console.log(`User ${user.firstName} ${user.lastName}: ${totalOrders} orders, ₹${totalSpent} spent`)
-              
-              return { ...user, totalOrders, totalSpent }
+
+          // Helper: normalize an id (handles ObjectId objects, _id, id)
+          const normalizeId = (val: any) => {
+            if (!val && val !== 0) return undefined
+            try {
+              // if it's an object like { $oid: '...' }
+              if (typeof val === "object") {
+                if (val.$oid) return String(val.$oid)
+                if (val.toString) return String(val.toString())
+                return undefined
+              }
+              return String(val)
+            } catch {
+              return undefined
             }
-            // Admins don't have order stats
+          }
+
+          const extractAmount = (order: any) => {
+            // Try a few common fields that hold the order total
+            const candidates = [order.total, order.totalAmount, order.amount, order.grandTotal, order.paymentTotal, order.summary?.total]
+            for (const c of candidates) {
+              if (typeof c === "number" && !Number.isNaN(c)) return c
+              // string numbers
+              if (typeof c === "string" && c.trim() !== "" && !Number.isNaN(Number(c))) return Number(c)
+            }
+            // fallback to summing line items if present
+            if (Array.isArray(order.items)) {
+              return order.items.reduce((s: number, it: any) => s + (it.price || it.total || 0), 0)
+            }
+            return 0
+          }
+
+          // Merge stats returned from the server with users
+          const statsById = new Map<string, any>()
+          const statsByEmail = new Map<string, any>()
+          stats.forEach((s: any) => {
+            if (s.userId) statsById.set(String(s.userId), s)
+            if (s.email) statsByEmail.set(String(s.email).toLowerCase(), s)
+          })
+
+          const usersWithStats = usersArray.map((user) => {
+            if (user.role === "customer") {
+              const uid = normalizeId(user.id) || normalizeId(user._id) || normalizeId((user as any)._id)
+              const byId = uid ? statsById.get(String(uid)) : undefined
+              const byEmail = user.email ? statsByEmail.get(user.email.toLowerCase()) : undefined
+              const matched = byId || byEmail
+              return {
+                ...user,
+                totalOrders: matched ? matched.ordersCount : 0,
+                totalSpent: matched ? matched.totalSpent : 0,
+              }
+            }
             return { ...user, totalOrders: 0, totalSpent: 0 }
           })
           

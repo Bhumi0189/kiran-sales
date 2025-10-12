@@ -284,12 +284,27 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(state.user?.token ? { Authorization: `Bearer ${state.user.token}` } : {}),
       },
       body: JSON.stringify({
-        productId: product._id || product.id,
-        size: selectedSize,
-        color: selectedColor,
-        userEmail: state.user.email,
+        customer: {
+          email: state.user.email,
+          firstName: state.user.firstName || '',
+          lastName: state.user.lastName || '',
+        },
+        items: [
+          {
+            id: product._id || product.id,
+            name: product.name,
+            quantity: 1,
+            price: product.price,
+            size: selectedSize,
+            color: selectedColor,
+          }
+        ],
+        totalAmount: product.price,
+        paymentMethod: "online",
+        shippingAddress: "",
       }),
     })
     .then((res) => {
@@ -462,11 +477,11 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               <span className="text-2xl font-extrabold text-gray-900">
-                ₹{formatRupee(product.price)}
+                {formatRupee(product.price)}
               </span>
               {Number(product.originalPrice) > Number(product.price) && (
                 <span className="text-sm text-gray-500 line-through">
-                  ₹{formatRupee(product.originalPrice)}
+                  {formatRupee(product.originalPrice)}
                 </span>
               )}
             </div>

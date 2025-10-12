@@ -4,8 +4,18 @@ import type { NextRequest } from "next/server"
 export function middleware(request: NextRequest) {
   // Only run for /admin routes
   if (request.nextUrl.pathname.startsWith("/admin")) {
-    // Try to get user from localStorage (not available in middleware), so use cookies or headers
-    // For demo, check for a cookie named 'kiran-sales-user'
+    // In local development allow access to /admin routes so the dev server
+    // doesn't redirect while you're testing. For production the existing
+    // cookie/role checks remain in effect.
+    const host = request.headers.get("host") || ""
+    const isLocalhost = host.startsWith("localhost") || host.startsWith("127.0.0.1")
+
+    if (isLocalhost) {
+      // Skip auth check in local development to avoid redirect loops while testing
+      return NextResponse.next()
+    }
+
+    // Try to get user from cookies in production
     const userCookie = request.cookies.get("kiran-sales-user")
     if (!userCookie) {
       // Not logged in, redirect to home

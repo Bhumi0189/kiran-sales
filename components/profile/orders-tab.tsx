@@ -16,7 +16,7 @@ export default function OrdersTab() {
     <ul className="space-y-2">
       {data.orders.map((order: any) => (
         <li key={order._id || order.id} className="border rounded p-2">
-          <div>Order #{order.orderId || order._id || order.id}</div>
+          <div>Order #{(order._id || order.id || '').toString().slice(-8)}</div>
           <div>Date: {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : (order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A')}</div>
           <div>Total: ₹{order.totalAmount ?? order.total ?? 'N/A'}</div>
           <div>Status: {order.paymentStatus ?? order.status ?? 'N/A'}</div>

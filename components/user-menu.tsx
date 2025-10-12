@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
@@ -33,11 +33,17 @@ export function UserMenu() {
     if (!state.user) return;
     setLoadingOrders(true);
     setLoadingWishlist(true);
-    fetch("/api/orders")
+    fetch(`/api/orders?email=${encodeURIComponent(state.user.email)}`, {
+      headers: {
+        ...(state.user?.token ? { Authorization: `Bearer ${state.user.token}` } : {}),
+      }
+    })
       .then((res) => res.json())
       .then((data) => {
+        // Normalize response: server may return { orders } or an array
+        const ordersArray = Array.isArray(data) ? data : (data?.orders || []);
         if (state.user) {
-          const filtered = data.filter((o: any) => o.customer && o.customer.email === state.user?.email);
+          const filtered = ordersArray.filter((o: any) => (o.customer && o.customer.email) === state.user?.email || o.customerEmail === state.user?.email);
           setOrders(filtered);
         } else {
           setOrders([]);
@@ -71,6 +77,9 @@ export function UserMenu() {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl min-w-[700px] p-0 bg-white rounded-2xl shadow-lg border overflow-hidden">
+        <DialogHeader>
+          <DialogDescription className="sr-only">User account menu and quick actions</DialogDescription>
+        </DialogHeader>
         <div className="flex min-h-[520px]">
           {/* Sidebar Navigation */}
           <div className="w-56 bg-gray-50 border-r flex flex-col py-8 px-4 gap-2">

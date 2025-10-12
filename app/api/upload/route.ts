@@ -1,6 +1,7 @@
 // For App Router (app/api/upload/route.ts)
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
+import { mkdir } from 'fs/promises'
 import path from 'path'
 
 export async function POST(request: NextRequest) {
@@ -20,8 +21,12 @@ export async function POST(request: NextRequest) {
     const filename = uniqueSuffix + '-' + file.name.replace(/\s/g, '-')
     const filepath = path.join(process.cwd(), 'public', 'uploads', filename)
 
-    // Save to public/uploads directory
-    await writeFile(filepath, buffer)
+  // Ensure uploads directory exists
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
+  await mkdir(uploadsDir, { recursive: true })
+
+  // Save to public/uploads directory
+  await writeFile(filepath, buffer)
     
     return NextResponse.json({ url: `/uploads/${filename}` })
   } catch (error) {

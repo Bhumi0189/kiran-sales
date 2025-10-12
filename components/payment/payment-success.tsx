@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Download, Mail, ArrowRight } from "lucide-react"
 import { formatRupee } from '@/lib/format'
 import Link from "next/link"
+import jsPDF from 'jspdf';
 
 interface PaymentSuccessProps {
   orderData: {
@@ -20,8 +21,22 @@ interface PaymentSuccessProps {
 
 export function PaymentSuccess({ orderData }: PaymentSuccessProps) {
   const handleDownloadInvoice = () => {
-    // Mock invoice download
-    console.log("Downloading invoice for order:", orderData.orderId)
+    const doc = new jsPDF()
+
+    // Add content to the PDF
+    doc.setFontSize(16)
+    doc.text('Order Placed Successfully!', 10, 10)
+
+  doc.setFontSize(12)
+  doc.text(`Order ID: ${orderData.orderId}`, 10, 30)
+  const amountPaid = (orderData as any).amountPaid ?? (orderData as any).amount ?? 0
+  const paymentMethod = (orderData as any).paymentMethod ?? 'N/A'
+  doc.text(`Amount Paid: ₹${amountPaid}`, 10, 40)
+  doc.text(`Payment Method: ${paymentMethod}`, 10, 50)
+  doc.text(`Estimated Delivery: ${orderData.estimatedDelivery}`, 10, 60)
+
+    // Save the PDF
+    doc.save(`Invoice_${orderData.orderId}.pdf`)
   }
 
   const handleEmailInvoice = () => {
@@ -55,12 +70,11 @@ export function PaymentSuccess({ orderData }: PaymentSuccessProps) {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Amount Paid:</span>
                   <span className="font-medium">
-                    ₹{typeof orderData.amount === "number" && !isNaN(orderData.amount) ? formatRupee(orderData.amount) : "0"}
-                  </span>
+                    {typeof orderData.amountPaid === "number" && !isNaN(orderData.amountPaid) ? formatRupee(orderData.amountPaid) : "0"}                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Method:</span>
-                  <Badge variant="secondary">{orderData.paymentMethod.toUpperCase()}</Badge>
+                  <Badge variant="secondary">{(orderData?.paymentMethod || 'N/A').toString().toUpperCase()}</Badge>
                 </div>
                 {orderData.transactionId && (
                   <div className="flex justify-between">
@@ -106,7 +120,7 @@ export function PaymentSuccess({ orderData }: PaymentSuccessProps) {
             {/* Additional Info */}
             <div className="mt-8 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                📧 A confirmation email has been sent to <strong>{orderData.customerEmail}</strong>
+                📧 A confirmation email has been sent to <strong>{orderData?.customerEmail || orderData?.customer?.email || 'your email'}</strong>
               </p>
               <p className="text-sm text-blue-700 mt-2">
                 For any queries, contact us at <strong>support@kiransales.com</strong> or call{" "}

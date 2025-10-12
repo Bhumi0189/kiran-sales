@@ -68,7 +68,7 @@ export function CartSheet() {
                       {item.product.size && <p className="text-xs text-gray-400">Size: {item.product.size}</p>}
                       {item.product.color && <p className="text-xs text-gray-400">Color: {item.product.color}</p>}
                       <div className="flex items-center justify-between mt-2">
-                        <span className="font-semibold text-gray-900">₹{formatRupee(item.product.price)}</span>
+                        <span className="font-semibold text-gray-900">{formatRupee(item.product.price)}</span>
                         <div className="flex items-center space-x-2">
                           <Button
                             size="sm"
@@ -105,7 +105,7 @@ export function CartSheet() {
               <div className="border-t pt-4 mt-6">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-lg font-semibold">Total:</span>
-                  <span className="text-xl font-bold text-blue-600">₹{formatRupee(state.total)}</span>
+                  <span className="text-xl font-bold text-blue-600">{formatRupee(state.total)}</span>
                 </div>
 
                 <div className="space-y-2">

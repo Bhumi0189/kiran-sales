@@ -47,16 +47,27 @@ export async function GET() {
     const users = await db.collection("users").find({}).toArray()
     const orders = await db.collection("orders").find({}).toArray()
 
-    // Add totalOrders and totalSpent for each customer
+    // Add totalOrders, totalSpent, and ensure productId for each customer
     const usersWithStats = users.map((user: any) => {
       if (user.role === "customer") {
         const userOrders = orders.filter((o: any) => o.customer?.email === user.email)
         const totalOrders = userOrders.length
         const totalSpent = userOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
-        return { ...user, totalOrders, totalSpent }
+
+        // Ensure productId exists for all items in the orders
+        const enrichedOrders = userOrders.map((order: any) => {
+          order.items = order.items?.map((item: any) => ({
+            ...item,
+            productId: item.productId || "unknown-product-id",
+          }))
+          return order
+        })
+
+        return { ...user, totalOrders, totalSpent, orders: enrichedOrders }
       }
       return { ...user, totalOrders: 0, totalSpent: 0 }
     })
+
     return NextResponse.json(usersWithStats)
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

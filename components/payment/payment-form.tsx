@@ -272,7 +272,7 @@ export function PaymentForm({
             <div className="flex items-center">
               <Truck className="w-5 h-5 text-green-600 mr-2" />
               <span className="text-sm text-green-800">
-                Pay ₹{formatRupee(Math.round(total * 1.18))} when your order is delivered
+                Pay {formatRupee(Math.round(total * 1.18))} when your order is delivered
               </span>
             </div>
           </div>
@@ -291,7 +291,7 @@ export function PaymentForm({
             onClick={handlePaymentSubmit}
             disabled={isProcessing}
           >
-            {isProcessing ? "Processing..." : `Pay ₹${formatRupee(Math.round(total * 1.18))}`}
+            {isProcessing ? "Processing..." : `Pay ${formatRupee(Math.round(total * 1.18))}`}
           </Button>
         )}
       </CardContent>
