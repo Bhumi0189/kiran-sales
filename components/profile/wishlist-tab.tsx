@@ -53,7 +53,8 @@ export default function WishlistTab({ email }: { email: string }) {
               <div className="line-through text-gray-400 text-base">₹{item.originalPrice}</div>
             )}
           </div>
-          <div className="text-xs text-gray-400 mb-3">Stock: {item.stock}</div>
+          {/* Remove stock display */}
+          {/* <div className="text-xs text-gray-400 mb-3">Stock: {item.stock}</div> */}
           <button
             className="mt-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors"
             // onClick={() => handleMoveToCart(item)}

@@ -15,7 +15,6 @@ import { useAuth } from "@/lib/auth-context"
 import { ArrowLeft, User, Phone, Calendar, Save, Heart } from "lucide-react"
 import Link from "next/link"
 import WishlistTab from '@/components/profile/wishlist-tab'
-import AddressesTab from '@/components/profile/addresses-tab'
 import { formatRupee } from '@/lib/format'
 
 function ProfilePage() {
@@ -155,9 +154,6 @@ function ProfilePage() {
               <button onClick={() => setSidebarTab('reviews')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-left transition-all ${sidebarTab === 'reviews' ? 'bg-blue-100 text-blue-900 font-bold' : 'hover:bg-gray-100 text-gray-700'}`}>
                 <Star className="w-4 h-4 text-blue-900" /> Reviews
               </button>
-              <button onClick={() => setSidebarTab('addresses')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-left transition-all ${sidebarTab === 'addresses' ? 'bg-blue-100 text-blue-900 font-bold' : 'hover:bg-gray-100 text-gray-700'}`}>
-                <MapPin className="w-4 h-4 text-blue-900" /> Addresses
-              </button>
               <button onClick={() => setSidebarTab('support')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-left transition-all ${sidebarTab === 'support' ? 'bg-blue-100 text-blue-900 font-bold' : 'hover:bg-gray-100 text-gray-700'}`}>
                 <LifeBuoy className="w-4 h-4 text-blue-900" /> Support
               </button>
@@ -275,25 +271,32 @@ function ProfilePage() {
                                       <div>
                                         <h4 className="font-semibold mb-2">Order Items</h4>
                                         <div className="space-y-2">
-                                          {order.items?.map((item: any, index: number) => (
-                                            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                              <div>
-                                                <p className="font-medium">{item.name}</p>
-                                                <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                                          {order.items && order.items.length > 0 ? (
+                                            order.items.map((item: any, index: number) => (
+                                              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <div>
+                                                  <p className="font-medium">{item.name || "Unnamed Product"}</p>
+                                                  <p className="text-sm text-gray-600">Size: {item.size || "Size Unavailable"}</p> {/* Display size */}
+                                                  <p className="text-sm text-gray-600">Color: {item.color || "Color Unavailable"}</p> {/* Display color */}
+                                                  <p className="text-sm text-gray-600">Quantity: {item.quantity || 1}</p>
+                                                  <p className="text-sm text-gray-600">Price: ₹{formatRupee(item.price || 0)}</p>
+                                                </div>
+                                                <span className="font-semibold">₹{formatRupee((item.price ?? 0) * (item.quantity ?? 1))}</span>
                                               </div>
-                                              <span className="font-semibold">₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}</span>
-                                            </div>
-                                          ))}
+                                            ))
+                                          ) : (
+                                            <p className="text-gray-500">No items found for this order.</p>
+                                          )}
                                         </div>
                                       </div>
                                       <div>
                                         <h4 className="font-semibold mb-2">Shipping Address</h4>
-                                        <p className="bg-gray-50 p-4 rounded-lg">{order.shippingAddress || "-"}</p>
+                                        <p className="bg-gray-50 p-4 rounded-lg">{order.shippingAddress || "Address Unavailable"}</p>
                                       </div>
                                       <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                         <div>
-                                          <p><strong>Order Date:</strong> {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "-"}</p>
-                                          <p><strong>Payment:</strong> {order.paymentMethod || "-"}</p>
+                                          <p><strong>Order Date:</strong> {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "Date Unavailable"}</p>
+                                          <p><strong>Payment:</strong> {order.paymentMethod || "Payment Method Unavailable"}</p>
                                         </div>
                                         <div>
                                           <p><strong>Status:</strong> {status}</p>
@@ -335,11 +338,11 @@ function ProfilePage() {
                   <div className="text-gray-500 text-center py-8">Loading delivered products...</div>
                 ) : (
                   <>
-                    {orders.filter(order => (order.status || order.deliveryStatus) === 'delivered').length === 0 ? (
+                    {orders.filter(order => (order.status?.toLowerCase() === 'delivered' || order.deliveryStatus?.toLowerCase() === 'delivered') && order.items?.length > 0).length === 0 ? (
                       <div className="text-gray-500 text-center py-8">No delivered products to review yet.</div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {orders.filter(order => (order.status || order.deliveryStatus) === 'delivered').map(order => (
+                        {orders.filter(order => (order.status?.toLowerCase() === 'delivered' || order.deliveryStatus?.toLowerCase() === 'delivered')).map(order => (
                           order.items?.map((item: any, idx: number) => (
                             <Card key={item.productId || item.id || idx} className="flex flex-col h-full shadow-md rounded-xl overflow-hidden border border-gray-200 bg-white">
                               <CardContent className="flex flex-col h-full p-5">
@@ -381,14 +384,6 @@ function ProfilePage() {
                     )}
                   </>
                 )}
-              </div>
-            )}
-
-            {sidebarTab === 'addresses' && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Addresses</h2>
-                <p className="text-gray-600 mb-4">Manage your shipping addresses</p>
-                <AddressesTab userId={state.user?._id || state.user?.id || ""} />
               </div>
             )}
 

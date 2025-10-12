@@ -12,6 +12,7 @@ import { formatRupee } from '../lib/format';
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/hooks/use-toast'
 import useSWR from 'swr'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLoginClick?: () => void }) => {
   const { dispatch } = useCart()
@@ -52,11 +53,16 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
   )
 
   const [localWishlisted, setLocalWishlisted] = useState(wishlisted)
+  const [selectedSize, setSelectedSize] = useState("M")
+  const [selectedColor, setSelectedColor] = useState(
+    Array.isArray(product.colors) && product.colors.length > 0 ? product.colors[0] : "Default Color"
+  )
 
   React.useEffect(() => {
     setLocalWishlisted(wishlisted)
   }, [wishlisted])
 
+  // Implement functionality for the ADD TO CART section
   const addToCart = () => {
     if (!state.user) {
       if (onLoginClick) {
@@ -71,18 +77,55 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
         title: "Out of Stock",
         description: "This item is currently out of stock.",
         variant: "destructive",
-      })
+      });
+      return;
+    }
+    // Ensure selected size and color are passed to the cart correctly
+    dispatch({
+      type: "ADD_ITEM",
+      payload: {
+        product,
+        size: selectedSize,
+        color: selectedColor,
+      },
+    });
+    toast({
+      title: "Added to Cart",
+      description: `${product.name} has been added to your cart with size ${selectedSize} and color ${selectedColor}.`,
+    })
+  }
+
+  // Implement functionality for Shop the Look
+  const shopTheLook = () => {
+    if (!state.user) {
+      if (onLoginClick) {
+        onLoginClick();
+      } else {
+        router.push('/profile');
+      }
+      return;
+    }
+    if (product.status === "out_of_stock" || product.stock === 0) {
+      toast({
+        title: "Out of Stock",
+        description: "This item is currently out of stock.",
+        variant: "destructive",
+      });
       return;
     }
     dispatch({
       type: "ADD_ITEM",
-      payload: { product },
+      payload: {
+        product,
+        size: selectedSize,
+        color: selectedColor,
+      },
     });
     toast({
-      title: "Added to Cart",
-      description: `${product.name} has been added to your cart.`,
-    })
-  }
+      title: "Shop the Look",
+      description: `${product.name} has been added to your cart with size ${selectedSize} and color ${selectedColor}.`,
+    });
+  };
 
   const handleWishlist = async () => {
     if (!state.user) {
@@ -174,9 +217,36 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
               ₹{formatRupee(product.originalPrice)}
             </p>
           )}
-          <div className="mt-2">
-            <p className="text-sm text-gray-700">Sizes: {product.sizes?.join(", ") || "N/A"}</p>
-            <p className="text-sm text-gray-700">Colors: {product.colors?.join(", ") || "N/A"}</p>
+          <div className="flex items-center justify-between mt-4">
+            {/* Size Selection */}
+            <div className="size-selection w-1/2 pr-2 flex flex-col items-center">
+              <p className="text-sm font-medium mb-1">Size:</p>
+              <Select value={selectedSize} onValueChange={setSelectedSize}>
+                <SelectTrigger className="h-10 w-32 text-sm"> {/* Adjusted height, width, and font size */}
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {product.sizes.map((size) => (
+                    <SelectItem key={size} value={size}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Color Selection */}
+            <div className="color-selection w-1/2 pl-2">
+              <p className="text-sm font-medium mb-1">Color:</p>
+              <Select value={selectedColor} onValueChange={setSelectedColor}>
+                <SelectTrigger className="h-12 text-lg w-full">
+                  <SelectValue placeholder="Select color" />
+                </SelectTrigger>
+                <SelectContent>
+                  {['Blue', 'Red', 'Black', 'Green'].map((color) => (
+                    <SelectItem key={color} value={color}>{color}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </CardContent>

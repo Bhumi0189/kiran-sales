@@ -13,6 +13,7 @@ export interface User {
   address?: string
   role: "customer" | "admin"
   createdAt: string
+  token?: string // Add token property for authentication
 }
 
 interface AuthState {
@@ -181,6 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    const cartKey = `cart_${state.user?.id || 'guest'}`;
+    localStorage.removeItem(cartKey); // Clear cart data on logout
     localStorage.removeItem("kiran-sales-user")
     dispatch({ type: "LOGOUT" })
   }

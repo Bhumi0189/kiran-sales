@@ -113,6 +113,7 @@ function FeaturedProductSection() {
     setWishlistLoading(false)
   }
 
+  // Ensure size and color are passed to the cart
   const addToCart = () => {
     if (!state.user) {
       setShowAuth(true)
@@ -120,11 +121,17 @@ function FeaturedProductSection() {
     }
     dispatch({
       type: "ADD_ITEM",
-      payload: { product: featuredProduct },
+      payload: {
+        product: {
+          ...featuredProduct,
+          size: selectedSize, // Pass selected size
+          color: "Deep Wine", // Pass color
+        },
+      },
     })
     toast({
       title: "Added to Cart",
-      description: `${featuredProduct.name} has been added to your cart.`,
+      description: `${featuredProduct.name} has been added to your cart with size ${selectedSize} and color Deep Wine.`,
     })
   }
 

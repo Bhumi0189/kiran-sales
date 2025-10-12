@@ -22,10 +22,11 @@ type CartState = {
 }
 
 type CartAction =
-  | { type: "ADD_ITEM"; payload: { product: any } }
+  | { type: "ADD_ITEM"; payload: { product: any; size?: string; color?: string } } // Add size and color properties
   | { type: "REMOVE_ITEM"; payload: { productId: string } }
   | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number } }
   | { type: "CLEAR_CART" }
+  | { type: "SET_ITEMS"; payload: { items: CartItem[] } } // Add SET_ITEMS action
 
 const CartContext = createContext<{
   state: CartState
@@ -39,17 +40,30 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case "ADD_ITEM": {
       const existingItemIndex = state.items.findIndex(
-        (item) => item.product._id === action.payload.product._id
+        (item) => item.id === action.payload.product._id && item.size === action.payload.size && item.color === action.payload.color
       )
       let updatedItems
       if (existingItemIndex !== -1) {
         updatedItems = [...state.items]
         updatedItems[existingItemIndex].quantity += 1
       } else {
-        updatedItems = [...state.items, { product: { ...action.payload.product, price: action.payload.product.price || 0 }, quantity: 1 }]
+        updatedItems = [
+          ...state.items,
+          {
+            id: action.payload.product._id,
+            name: action.payload.product.name,
+            price: action.payload.product.price || 0,
+            quantity: 1,
+            size: action.payload.size,
+            color: action.payload.color,
+            image: action.payload.product.image,
+            category: action.payload.product.category,
+            product: action.payload.product,
+          },
+        ]
       }
       const itemCount = updatedItems.reduce((sum, item) => sum + item.quantity, 0)
-      const total = updatedItems.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0)
+      const total = updatedItems.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0)
       return { items: updatedItems, itemCount, total }
     }
     case "REMOVE_ITEM": {
@@ -68,6 +82,11 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     }
     case "CLEAR_CART": {
       return { items: [], itemCount: 0, total: 0 }
+    }
+    case "SET_ITEMS": {
+      const itemCount = action.payload.items.reduce((sum, item) => sum + item.quantity, 0)
+      const total = action.payload.items.reduce((sum, item) => sum + (item.price || 0) * item.quantity, 0)
+      return { items: action.payload.items, itemCount, total }
     }
     default:
       return state
@@ -98,15 +117,40 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, [authState.user?.id]) // Depend on user ID to reload cart on login/logout
 
   useEffect(() => {
-    const userId = authState.user?.id
-    const cartKey = getCartKey(userId)
-    if (authState.user) {
-      localStorage.setItem(cartKey, JSON.stringify(state))
-    } else {
-      // If no user, don't save cart or clear guest cart
-      localStorage.removeItem(cartKey)
+    const initializeCart = () => {
+      const userId = authState.user?.id
+      const cartKey = getCartKey(userId)
+
+      try {
+        const storedCart = localStorage.getItem(cartKey)
+        if (storedCart) {
+          const parsedCart = JSON.parse(storedCart)
+          if (parsedCart.items && Array.isArray(parsedCart.items)) {
+            dispatch({ type: "SET_ITEMS", payload: { items: parsedCart.items } })
+          }
+        }
+      } catch (error) {
+        console.error("Error loading cart from localStorage:", error)
+      }
     }
-  }, [state, authState.user])
+
+    initializeCart()
+  }, [authState.user])
+
+  useEffect(() => {
+    const saveCart = () => {
+      const userId = authState.user?.id
+      const cartKey = getCartKey(userId)
+
+      try {
+        localStorage.setItem(cartKey, JSON.stringify(state))
+      } catch (error) {
+        console.error("Error saving cart to localStorage:", error)
+      }
+    }
+
+    saveCart()
+  }, [state])
 
   return <CartContext.Provider value={{ state, dispatch }}>{children}</CartContext.Provider>
 }

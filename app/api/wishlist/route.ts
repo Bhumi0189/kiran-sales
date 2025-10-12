@@ -31,7 +31,10 @@ export async function GET(req: Request) {
     const { db } = await connectToDatabase()
     // Case-insensitive email match
     const wishlist = await db.collection("wishlists").findOne({ email: { $regex: `^${email}$`, $options: "i" } })
-    const items = wishlist?.items || []
+    const items = (wishlist?.items || []).map((item: any) => {
+      const { stock, ...rest } = item; // Exclude the stock field
+      return rest;
+    });
     let pagedItems = items
     let hasMore = false
     if (limit > 0) {

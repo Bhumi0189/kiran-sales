@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { PaymentForm } from "@/components/payment/payment-form"
 import { formatRupee } from '@/lib/format'
 import { PaymentSuccess } from "@/components/payment/payment-success"
 import AddressSelect from "@/components/checkout/address-select"
+import jsPDF from 'jspdf';
 
 export default function CheckoutPage() {
   const { state, dispatch } = useCart()
@@ -101,17 +102,18 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price,
         id: item.id,
-        size: item.size || "Not Specified",
-        color: item.color || "Not Specified",
+        size: item.size || item.defaultSize || "Not Specified", // Ensure size is passed correctly
+        color: item.color || item.defaultColor || "Not Specified", // Ensure color is passed correctly
       })),
       totalAmount: totalAmount,
       amountPaid: totalAmount, // Full amount paid for online payment
+      amountPaidWithTaxes: totalAmount, // Total amount after taxes
       paymentStatus: "Paid",
       paymentMethod: formData.paymentMethod,
       transactionId: paymentData.transactionId,
       orderDate: new Date().toISOString(),
       estimatedDelivery: estimatedDelivery,
-      shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+      shippingAddress: `${formData.address || ''}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
@@ -150,16 +152,16 @@ export default function CheckoutPage() {
         quantity: item.quantity,
         price: item.price,
         id: item.id,
-        size: item.size || "Not Specified",
-        color: item.color || "Not Specified",
+        size: item.size || item.defaultSize || "Not Specified",
+        color: item.color || item.defaultColor || "Not Specified",
       })),
       totalAmount: totalAmount,
-      amountPaid: 0, // No payment collected yet for COD
+      amountPaid: totalAmount, // Corrected amount for COD orders
       paymentStatus: "Pending", // Payment pending for COD
       paymentMethod: "cod",
       orderDate: new Date().toISOString(),
       estimatedDelivery: estimatedDelivery,
-      shippingAddress: `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
+      shippingAddress: `${formData.address || ''}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
       shippingAddressId: selectedAddress?._id || null,
       deliveryStatus: "Pending",
     }
@@ -176,8 +178,104 @@ export default function CheckoutPage() {
     setIsProcessing(false)
   }
 
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      try {
+        const response = await fetch("/api/orders", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authState.user?.token}` // Include token if available
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error("Unauthorized: Please check your authentication token.");
+          }
+          throw new Error(`Error: ${response.status} - ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setOrderData(data);
+      } catch (error) {
+        console.error("Failed to fetch order data:", error);
+      }
+    };
+
+    fetchOrderData();
+  }, [authState.user?.token]);
+
+  // Update the fetchCartItems function to ensure correct product details are fetched
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      try {
+        const response = await fetch("/api/cart", {
+          method: "GET", // Changed from POST to GET based on backend requirements
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authState.user?.token}` // Include token if available
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 405) {
+            console.error("Method Not Allowed: Please check the HTTP method for /api/cart.");
+          }
+          throw new Error(`Error: ${response.status} - ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Fetched cart items:", data); // Debugging log to inspect fetched data
+
+        // Ensure real-time data for size and color is passed and displayed
+        const updatedItems = data.items.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size || item.defaultSize || "Unknown", // Ensure size is passed correctly
+          color: item.color || item.defaultColor || "Unknown", // Ensure color is passed correctly
+          image: item.image,
+          category: item.category,
+        }));
+
+        dispatch({ type: "SET_ITEMS", payload: updatedItems }); // Update cart state with fetched items
+      } catch (error) {
+        console.error("Failed to fetch cart items:", error);
+      }
+    };
+
+    fetchCartItems();
+  }, [authState.user?.token, dispatch]);
+
+  const handleDownloadInvoice = () => {
+    if (!orderData || !orderData.orderId) {
+      console.error("Order data is missing or incomplete.");
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.text('Invoice', 10, 10);
+    doc.text(`Order ID: ${orderData.orderId}`, 10, 20);
+    doc.text(`Amount Paid: ₹${orderData.amountPaid}`, 10, 30);
+    doc.text(`Payment Method: ${orderData.paymentMethod}`, 10, 40);
+    doc.text(`Estimated Delivery: ${orderData.estimatedDelivery}`, 10, 50);
+    doc.text(`Shipping Address: ${orderData.shippingAddress}`, 10, 60);
+    doc.save(`Invoice_${orderData.orderId}.pdf`);
+  };
+
+  // Ensure the `amountPaid` field is correctly calculated and passed in the order object
+  const totalAmount = Math.round(state.total * 1.18);
+  const order = {
+    amountPaid: totalAmount,
+    // ...existing order properties...
+  };
+
   if (orderPlaced && orderData) {
-    return <PaymentSuccess orderData={orderData} />
+    return (
+      <PaymentSuccess orderData={orderData} />
+    );
   }
 
   if (state.items.length === 0) {
@@ -350,28 +448,27 @@ export default function CheckoutPage() {
               <CardContent className="space-y-4">
                 {/* Order Items */}
                 <div className="space-y-3">
-                  {state.items.map((item) => (
-                    <div key={`${item.id}-${item.size}-${item.color}`} className="flex items-center space-x-3">
+                  {state.items.map((item, index) => (
+                    <div key={item.id || index} className="flex items-center space-x-3">
                       <div className="relative">
                         <Image
                           src={item.image || "/placeholder.svg"}
-                          alt={item.name}
+                          alt={item.name || "Unnamed Product"}
                           width={60}
                           height={60}
                           className="rounded-md object-cover"
                         />
                         <Badge className="absolute -top-2 -right-2 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-                          {item.quantity}
+                          {item.quantity || 1}
                         </Badge>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-gray-900 text-sm truncate">{item.name}</h4>
-                        <p className="text-xs text-gray-500">{item.category}</p>
-                        {item.size && <p className="text-xs text-gray-400">Size: {item.size}</p>}
+                        <h4 className="font-medium text-gray-900 text-sm truncate">{item.name || "Unnamed Product"}</h4>
+                        <p className="text-xs text-gray-500">Category: {item.category || "Not Specified"}</p>
+                        <p className="text-xs text-gray-400">Size: {item.size || "Unknown"}</p> {/* Correctly display size */}
+                        <p className="text-xs text-gray-400">Color: {item.color || "Unknown"}</p> {/* Correctly display color */}
+                        <p className="text-xs text-gray-400">Amount: ₹{formatRupee((item.price || 0) * (item.quantity || 1))}</p>
                       </div>
-                      <span className="font-semibold text-gray-900 text-sm">
-                        ₹{formatRupee((item.price ?? 0) * (item.quantity ?? 0))}
-                      </span>
                     </div>
                   ))}
                 </div>
@@ -382,7 +479,7 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>₹{formatRupee(state.total)}</span>
+                    <span>{formatRupee(state.total)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Shipping</span>
@@ -397,6 +494,12 @@ export default function CheckoutPage() {
                     <span>Total</span>
                     <span className="text-blue-600">₹{formatRupee(Math.round(state.total * 1.18))}</span>
                   </div>
+                </div>
+
+                {/* Project Details */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-900 text-sm">Project Details</h4>
+                  <p className="text-sm text-gray-600">This project is a sales e-commerce platform designed to streamline online shopping experiences. It includes features like user authentication, product management, and order processing.</p>
                 </div>
 
                 {/* COD Order Button */}
@@ -414,6 +517,16 @@ export default function CheckoutPage() {
                         Place Order - ₹{formatRupee(Math.round(state.total * 1.18))}
                       </>
                     )}
+                  </Button>
+                )}
+
+                {/* Invoice Download Button */}
+                {orderData && (
+                  <Button
+                    onClick={handleDownloadInvoice}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    Download Invoice
                   </Button>
                 )}
 
