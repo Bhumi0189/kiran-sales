@@ -91,13 +91,15 @@ export function OrdersTab() {
     const fetchOrders = async (isInitial = false) => {
       try {
         if (!isMounted) return;
-        if (isDialogOpen) return;
         if (isInitial) setLoading(true);
+        const controller = new AbortController();
+        const signal = controller.signal;
 
         const res = await fetch("/api/orders", {
           headers: {
             authorization: "Bearer admin-token",
           },
+          signal,
         });
         if (!res.ok) throw new Error("Failed to fetch orders");
         const data = await res.json();
@@ -116,8 +118,9 @@ export function OrdersTab() {
       }
     };
 
-    fetchOrders(true);
-    interval = setInterval(() => fetchOrders(false), 5000);
+  // run immediately then poll every 5s
+  fetchOrders(true);
+  interval = setInterval(() => fetchOrders(false), 5000);
 
     return () => {
       isMounted = false;
