@@ -15,6 +15,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { AuthDialog } from "@/components/auth-dialog"
 import ProductCard from "@/components/product-card"
 import useSWR from "swr"
+import SizeChartButton from '@/components/size-chart-button'
 
 // Category cards data
 const categories = [
@@ -170,7 +171,8 @@ function FeaturedProductSection() {
 
         <div>
           <p className="text-sm font-medium text-gray-900 mb-2">SIZE:</p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
             {["XS", "S", "M", "L", "XL"].map((size) => (
               <Button
                 key={size}
@@ -182,6 +184,11 @@ function FeaturedProductSection() {
                 {size}
               </Button>
             ))}
+            </div>
+            {/* Size chart button near the size selector */}
+            <div>
+              <SizeChartButton />
+            </div>
           </div>
         </div>
 
@@ -195,6 +202,8 @@ function FeaturedProductSection() {
     </div>
   )
 }
+
+// SizeChartButton is now a shared component in components/size-chart-button.tsx
 
 export default function HomePage() {
   const { state } = useAuth()
@@ -389,6 +398,8 @@ export default function HomePage() {
 
             <FeaturedProductSection />
           </div>
+
+          
         </div>
       </section>
 

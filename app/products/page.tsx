@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { AuthDialog } from "@/components/auth-dialog"
 import useSWR, { mutate as globalMutate } from "swr"
 import { formatRupee } from '@/lib/format';
+import SizeChartButton from '@/components/size-chart-button'
 
 const categories = ["All", "Surgical Scrubs", "Doctor Coats", "O.T. Linen", "Nursing Wear"];
 
@@ -487,7 +488,7 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
               )}
             </div>
           </div>
-          <div className="flex gap-2 mb-3">
+          <div className="flex gap-2 mb-3 items-center">
             <select
               value={selectedSize}
               onChange={(e) => setSelectedSize(e.target.value)}
@@ -497,6 +498,9 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
                 <option key={size} value={size}>{size}</option>
               ))}
             </select>
+            <div className="flex-shrink-0">
+              <SizeChartButton />
+            </div>
             <select
               value={selectedColor}
               onChange={(e) => setSelectedColor(e.target.value)}

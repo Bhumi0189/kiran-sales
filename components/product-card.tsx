@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/hooks/use-toast'
 import useSWR from 'swr'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import SizeChartButton from '@/components/size-chart-button'
 
 // Use standard size chart: XS - XL (matches printed size chart)
 const sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
@@ -221,16 +222,21 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
             {/* Size Selection */}
             <div className="size-selection w-1/2 pr-2 flex flex-col items-center">
               <p className="text-sm font-medium mb-1">Size:</p>
-              <Select value={selectedSize} onValueChange={setSelectedSize}>
-                <SelectTrigger className="h-10 w-32 text-sm"> {/* Adjusted height, width, and font size */}
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sizeOptions.map((size: string) => (
-                    <SelectItem key={size} value={size}>{size}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={selectedSize} onValueChange={setSelectedSize}>
+                  <SelectTrigger className="h-10 w-32 text-sm"> {/* Adjusted height, width, and font size */}
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sizeOptions.map((size: string) => (
+                      <SelectItem key={size} value={size}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex-shrink-0">
+                  <SizeChartButton />
+                </div>
+              </div>
             </div>
 
             {/* Color Selection */}

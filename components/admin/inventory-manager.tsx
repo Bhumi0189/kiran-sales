@@ -64,11 +64,29 @@ export default function InventoryManager() {
     image: ""
   })
 
+  // text fields for comma-separated sizes/colors in Add dialog
+  const [newSizesText, setNewSizesText] = useState("")
+  const [newColorsText, setNewColorsText] = useState("")
+
   const [editingProduct, setEditingProduct] = useState<any | null>(null)
+  const [editSizesText, setEditSizesText] = useState("")
+  const [editColorsText, setEditColorsText] = useState("")
+
+  React.useEffect(() => {
+    if (editingProduct) {
+      setEditSizesText(Array.isArray(editingProduct.sizes) ? editingProduct.sizes.join(', ') : (editingProduct.sizes || '').toString())
+      setEditColorsText(Array.isArray(editingProduct.colors) ? editingProduct.colors.join(', ') : (editingProduct.colors || '').toString())
+    }
+  }, [editingProduct])
   // Fetch products from API
   const handleEditProduct = async () => {
     if (!editingProduct) return
     const { _id, ...update } = editingProduct
+    // parse sizes/colors from edit text fields
+    const sizes = editSizesText ? editSizesText.split(',').map(s => s.trim()).filter(Boolean) : []
+    const colors = editColorsText ? editColorsText.split(',').map(c => c.trim()).filter(Boolean) : []
+    update.sizes = sizes
+    update.colors = colors
     await fetch("/api/products", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -157,14 +175,18 @@ export default function InventoryManager() {
     const originalPrice = Number.parseFloat(newProduct.originalPrice) || price;
     const stock = Number.parseInt(newProduct.stock) || 0;
 
+    // parse sizes and colors from comma-separated admin input
+    const sizes = newSizesText ? newSizesText.split(',').map(s => s.trim()).filter(Boolean) : []
+    const colors = newColorsText ? newColorsText.split(',').map(c => c.trim()).filter(Boolean) : []
+
     const product = {
       name: newProduct.name?.trim() || "",
       price,
       originalPrice,
       image: imageUrl,
       // API expects sizes and colors arrays — provide empty arrays when not specified
-      sizes: [],
-      colors: [],
+      sizes,
+      colors,
       category: newProduct.category?.trim() || "",
       subcategory: newProduct.subcategory?.trim() || "",
       stock,
@@ -205,6 +227,8 @@ export default function InventoryManager() {
     }
 
     setNewProduct({ name: "", price: "", originalPrice: "", category: "", subcategory: "", stock: "", description: "", image: "" });
+    setNewSizesText("")
+    setNewColorsText("")
     setIsAddDialogOpen(false);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -261,6 +285,29 @@ export default function InventoryManager() {
                     value={newProduct.originalPrice}
                     onChange={(e) => setNewProduct((prev) => ({ ...prev, originalPrice: e.target.value }))}
                     placeholder="2999"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="product-sizes" className="text-xs">Available Sizes</Label>
+                  <Input
+                    id="product-sizes"
+                    value={newSizesText}
+                    onChange={(e) => setNewSizesText(e.target.value)}
+                    placeholder="e.g. XS, S, M, L, XL"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="product-colors" className="text-xs">Available Colors</Label>
+                  <Input
+                    id="product-colors"
+                    value={newColorsText}
+                    onChange={(e) => setNewColorsText(e.target.value)}
+                    placeholder="e.g. Blue, Pink, Green"
                     className="h-8 text-sm"
                   />
                 </div>
@@ -452,6 +499,25 @@ export default function InventoryManager() {
               <div className="space-y-2">
                 <h3 className="font-semibold text-gray-900 truncate">{product.name}</h3>
                 <p className="text-sm text-gray-600">{product.category}</p>
+                {/* display available sizes and colors to admin */}
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {Array.isArray(product.sizes) && product.sizes.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {product.sizes.slice(0,5).map((s:any)=> (
+                        <Badge key={s} className="text-xs">{s}</Badge>
+                      ))}
+                      {product.sizes.length > 5 && <span className="text-xs text-gray-400">+{product.sizes.length-5}</span>}
+                    </div>
+                  )}
+                  {Array.isArray(product.colors) && product.colors.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {product.colors.slice(0,5).map((c:any)=> (
+                        <span key={c} className="h-4 px-2 rounded-full text-xs border bg-white border-gray-200">{c}</span>
+                      ))}
+                      {product.colors.length > 5 && <span className="text-xs text-gray-400">+{product.colors.length-5}</span>}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-gray-900">₹{Number(product.price || 0).toLocaleString()}</span>
@@ -561,6 +627,26 @@ export default function InventoryManager() {
                   onChange={(e) => setEditingProduct((prev: any) => ({ ...prev, image: e.target.value }))}
                   placeholder="Paste image URL or upload below"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="edit-product-sizes">Available Sizes</Label>
+                  <Input
+                    id="edit-product-sizes"
+                    value={editSizesText}
+                    onChange={(e) => setEditSizesText(e.target.value)}
+                    placeholder="XS, S, M, L, XL"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-product-colors">Available Colors</Label>
+                  <Input
+                    id="edit-product-colors"
+                    value={editColorsText}
+                    onChange={(e) => setEditColorsText(e.target.value)}
+                    placeholder="Blue, Pink, Green"
+                  />
+                </div>
               </div>
               <Button onClick={handleEditProduct} className="w-full bg-blue-600 hover:bg-blue-700">
                 Save Changes
