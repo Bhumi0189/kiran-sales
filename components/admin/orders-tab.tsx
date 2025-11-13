@@ -87,13 +87,21 @@ export function OrdersTab() {
   React.useEffect(() => {
     let isMounted = true;
     let interval: NodeJS.Timeout;
+    let controller: AbortController | null = null;
 
     const fetchOrders = async (isInitial = false) => {
       try {
         if (!isMounted) return;
         if (isInitial) setLoading(true);
-        const controller = new AbortController();
-        const signal = controller.signal;
+
+        // Abort any previous in-flight request before starting a new one
+        try {
+          controller?.abort();
+        } catch (e) {
+          // ignore
+        }
+        controller = new AbortController();
+        const { signal } = controller;
 
         const res = await fetch("/api/orders", {
           headers: {
@@ -111,6 +119,11 @@ export function OrdersTab() {
           setOrders(ordersArray);
         }
       } catch (error) {
+        // If the fetch was aborted, don't overwrite state
+        if ((error as any)?.name === 'AbortError') {
+          console.log('orders fetch aborted')
+          return;
+        }
         console.error("Error fetching orders:", error);
         if (isMounted) setOrders([]);
       } finally {
@@ -118,15 +131,18 @@ export function OrdersTab() {
       }
     };
 
-  // run immediately then poll every 5s
-  fetchOrders(true);
-  interval = setInterval(() => fetchOrders(false), 5000);
+    // run immediately then poll every 5s
+    fetchOrders(true);
+    interval = setInterval(() => fetchOrders(false), 5000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      try {
+        controller?.abort();
+      } catch (e) {}
     };
-  }, [isDialogOpen])
+  }, [])
 
   const filteredOrders = orders.filter((order) => {
     const orderId = getOrderId(order);

@@ -191,7 +191,8 @@ function ProductsPage() {
 
 export default ProductsPage;
 
-const sizes = ["S", "M", "L", "XL", "XXL"];
+// Standard size options (based on provided size chart)
+const sizes = ["XS", "S", "M", "L", "XL"];
 const colors = ["Red", "Blue", "Green", "Black", "White"];
 
 // Add size and color selection to ProductCard

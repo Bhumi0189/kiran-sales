@@ -14,7 +14,8 @@ import { useToast } from '@/hooks/use-toast'
 import useSWR from 'swr'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const sizeOptions = ['S', 'M', 'L', 'Standard'];
+// Use standard size chart: XS - XL (matches printed size chart)
+const sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
 
 const dummyImages: string[] = [
   "/surgical-scrubs-medical-uniform.jpg",

@@ -9,7 +9,7 @@ const productCategories = [
     name: "O.T. Linen",
     description: "Includes surgeon gowns, drapes, hole sheets, and customized linen as per demand.",
     products: [
-      { name: "Surgeon Gown", sizes: ["S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "High quality surgeon gown.", price: 1200 },
+  { name: "Surgeon Gown", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "High quality surgeon gown.", price: 1200 },
       { name: "Drape", sizes: ["Standard", "Custom"], customizable: true, image: "/placeholder.svg", description: "Sterile drape for O.T.", price: 500 },
       { name: "Hole Sheet", sizes: ["Standard", "Custom"], customizable: true, image: "/placeholder.svg", description: "Hole sheet for surgery.", price: 350 },
       { name: "Custom Linen", sizes: ["Custom"], customizable: true, image: "/placeholder.svg", description: "Custom O.T. linen.", price: 800 },
@@ -22,24 +22,24 @@ const productCategories = [
       { name: "Bedsheet", sizes: ["Single", "Double"], customizable: true, image: "/placeholder.svg", description: "Soft hospital bedsheet.", price: 250 },
       { name: "Pillow Cover", sizes: ["Standard"], customizable: false, image: "/placeholder.svg", description: "Standard pillow cover.", price: 60 },
       { name: "Blanket", sizes: ["Standard"], customizable: false, image: "/placeholder.svg", description: "Warm hospital blanket.", price: 350 },
-      { name: "Patient Gown", sizes: ["S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Patient gown for comfort.", price: 200 },
+  { name: "Patient Gown", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Patient gown for comfort.", price: 200 },
     ],
   },
   {
     name: "Scrub Suits",
     description: "Unisex scrub tops and bottoms in multiple sizes and colors.",
     products: [
-      { name: "Scrub Top", sizes: ["S", "M", "L", "XL", "XXL"], customizable: true, image: "/placeholder.svg", description: "Unisex scrub top.", price: 400 },
-      { name: "Scrub Bottom", sizes: ["S", "M", "L", "XL", "XXL"], customizable: true, image: "/placeholder.svg", description: "Unisex scrub bottom.", price: 350 },
+  { name: "Scrub Top", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Unisex scrub top.", price: 400 },
+  { name: "Scrub Bottom", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Unisex scrub bottom.", price: 350 },
     ],
   },
   {
     name: "Lab Coats",
     description: "Doctor coats, technician coats, and custom embroidered coats.",
     products: [
-      { name: "Doctor Coat", sizes: ["S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Classic doctor coat.", price: 500 },
-      { name: "Technician Coat", sizes: ["S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Technician lab coat.", price: 450 },
-      { name: "Embroidered Coat", sizes: ["S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Custom embroidered coat.", price: 700 },
+  { name: "Doctor Coat", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Classic doctor coat.", price: 500 },
+  { name: "Technician Coat", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Technician lab coat.", price: 450 },
+  { name: "Embroidered Coat", sizes: ["XS", "S", "M", "L", "XL"], customizable: true, image: "/placeholder.svg", description: "Custom embroidered coat.", price: 700 },
     ],
   },
   // Leave space for additional categories

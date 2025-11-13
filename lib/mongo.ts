@@ -13,3 +13,9 @@ export async function getMongoClient() {
   }
   return client;
 }
+
+export async function connectToDatabase() {
+  const client = await getMongoClient();
+  const db = client.db(process.env.MONGODB_DB || 'kiransales');
+  return { client, db };
+}
