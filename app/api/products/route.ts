@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { ObjectId } from "mongodb"
 import { getMongoClient } from "@/lib/mongo"
+import { writeFile, mkdir, readFile } from 'fs/promises'
+import path from 'path'
 
 const dbName = process.env.MONGODB_DB || "kiransales"
 
 export async function POST(req: Request) {
   try {
-    const client = await getMongoClient()
-    const db = client.db(dbName)
     const body = await req.json()
     try { console.log('[app-route][products][POST] incoming body:', JSON.stringify(body)) } catch (e) { console.log('[app-route][products][POST] incoming body: <unserializable>') }
 
@@ -16,8 +16,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid sizes or colors format" }, { status: 400 })
     }
 
-    const result = await db.collection("products").insertOne(body)
-    return NextResponse.json({ insertedId: result.insertedId }, { status: 201 })
+    // Try to use MongoDB first. If Mongo is unavailable (e.g. no MONGODB_URI in dev), fall back to a local file
+    try {
+      const client = await getMongoClient()
+      const db = client.db(dbName)
+      const result = await db.collection("products").insertOne(body)
+      return NextResponse.json({ insertedId: result.insertedId }, { status: 201 })
+    } catch (dbErr) {
+      console.error('MongoDB unavailable or insert failed, falling back to file storage:', dbErr)
+      try {
+        const dataDir = path.join(process.cwd(), 'data')
+        await mkdir(dataDir, { recursive: true })
+        const filePath = path.join(dataDir, 'products.json')
+        let arr: any[] = []
+        try {
+          const existing = await readFile(filePath, 'utf8')
+          arr = JSON.parse(existing)
+          if (!Array.isArray(arr)) arr = []
+        } catch (e) {
+          arr = []
+        }
+        const insertedId = Date.now().toString()
+        arr.push({ _id: insertedId, ...body })
+        await writeFile(filePath, JSON.stringify(arr, null, 2), 'utf8')
+        return NextResponse.json({ insertedId }, { status: 201 })
+      } catch (fileErr) {
+        console.error('Fallback file write failed:', fileErr)
+        return NextResponse.json({ error: fileErr?.message || 'Failed to save product' }, { status: 500 })
+      }
+    }
   } catch (error: any) {
     console.error("POST /api/products error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SizeChartButton from '@/components/size-chart-button'
 
 // Use standard size chart: XS - XL (matches printed size chart)
-const sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
+const DEFAULT_SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL'];
 
 const dummyImages: string[] = [
   "/surgical-scrubs-medical-uniform.jpg",
@@ -24,18 +24,41 @@ const dummyImages: string[] = [
   "/hospital-bed-linen-white-sterile.jpg",
 ];
 
+function normalizeList(value: any): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value.filter(Boolean).map(String)
+  if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean)
+  if (typeof value === 'object') {
+    if ((value as any).url) return [String((value as any).url)]
+    const arr = Object.values(value).filter(v => typeof v === 'string')
+    return arr.map(String)
+  }
+  return []
+}
+
 const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLoginClick?: () => void }) => {
   const { dispatch } = useCart();
   const { toast } = useToast();
   const { state } = useAuth();
   const router = useRouter();
   const [wishlistLoading, setWishlistLoading] = useState(false);
-  const [imageSrc, setImageSrc] = useState(() => {
-    if (product.image && typeof product.image === "string" && product.image.trim() !== "" && product.image !== "/placeholder.svg") {
-      return product.image;
+  const resolveImage = (img: any) => {
+    if (!img) return undefined
+    if (typeof img === 'string' && img.trim() !== '' && img !== '/placeholder.svg') return img
+    if (Array.isArray(img)) {
+      const first = img.find(i => typeof i === 'string' && i.trim() !== '' )
+      if (first) return first
+      if (img.length > 0 && typeof img[0] === 'object' && img[0]?.url) return img[0].url
     }
+    if (typeof img === 'object' && img?.url) return img.url
+    return undefined
+  }
+
+  const [imageSrc, setImageSrc] = useState(() => {
+    const resolved = resolveImage(product.image)
+    if (resolved) return resolved
     const idx = (product._id || product.id || 0).toString().split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-    return dummyImages[idx % dummyImages.length];
+    return dummyImages[Math.abs(idx) % dummyImages.length];
   });
 
   const wishlistKey = state.user ? `/api/wishlist?email=${encodeURIComponent(state.user.email)}` : null;
@@ -45,23 +68,37 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
   });
 
   const wishlistItems = Array.isArray(wishlistDataRaw?.items) ? wishlistDataRaw.items : [];
-  const wishlisted = React.useMemo(
-    () =>
-      !!wishlistItems.find((item: any) =>
-        (item.id === (product._id || product.id)) || (item._id === (product._id || product.id))
-      ),
-    [wishlistItems, product._id, product.id]
-  );
+  const wishlisted = React.useMemo(() => !!wishlistItems.find((item: any) => (item.id === (product._id || product.id)) || (item._id === (product._id || product.id))), [wishlistItems, product._id, product.id]);
 
   const [localWishlisted, setLocalWishlisted] = useState(wishlisted)
-  const [selectedSize, setSelectedSize] = useState("M")
-  const [selectedColor, setSelectedColor] = useState(
-    Array.isArray(product.colors) && product.colors.length > 0 ? product.colors[0] : "Default Color"
-  )
+
+  // derive normalized options
+  const productSizes = normalizeList(product.sizes).length ? normalizeList(product.sizes) : DEFAULT_SIZE_OPTIONS
+  const productColors = normalizeList(product.colors).length ? normalizeList(product.colors) : (Array.isArray(product.colors) ? product.colors : ['Default Color'])
+
+  const [selectedSize, setSelectedSize] = useState<string>(productSizes[0])
+  const [selectedColor, setSelectedColor] = useState<string>(productColors[0])
+
+  // Keep selected size/color in sync if product prop changes (e.g., after edit)
+  React.useEffect(() => {
+    setSelectedSize(prev => (prev && productSizes.includes(prev) ? prev : (productSizes[0] || DEFAULT_SIZE_OPTIONS[2])))
+  }, [product._id, productSizes.join('|')])
+
+  React.useEffect(() => {
+    setSelectedColor(prev => (prev && productColors.includes(prev) ? prev : (productColors[0] || 'Default Color')))
+  }, [product._id, productColors.join('|')])
 
   React.useEffect(() => {
     setLocalWishlisted(wishlisted)
   }, [wishlisted])
+
+  // Keep selected size/color in sync if product prop changes (e.g., after edit)
+  React.useEffect(() => {
+    const sizes = Array.isArray(product.sizes) && product.sizes.length ? product.sizes : DEFAULT_SIZE_OPTIONS
+    const colors = Array.isArray(product.colors) && product.colors.length ? product.colors : ['Default Color']
+    setSelectedSize(prev => sizes.includes(prev) ? prev : sizes[0])
+    setSelectedColor(prev => colors.includes(prev) ? prev : colors[0])
+  }, [product.sizes, product.colors])
 
   // Implement functionality for the ADD TO CART section
   const addToCart = () => {
@@ -228,7 +265,7 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
                     <SelectValue placeholder="Select size" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sizeOptions.map((size: string) => (
+                    {(Array.isArray(product.sizes) && product.sizes.length ? product.sizes : DEFAULT_SIZE_OPTIONS).map((size: string) => (
                       <SelectItem key={size} value={size}>{size}</SelectItem>
                     ))}
                   </SelectContent>
@@ -247,7 +284,7 @@ const ProductCard = React.memo(({ product, onLoginClick }: { product: any, onLog
                   <SelectValue placeholder="Select color" />
                 </SelectTrigger>
                 <SelectContent>
-                  {['Blue', 'Red', 'Black', 'Green'].map((color) => (
+                  {(Array.isArray(product.colors) && product.colors.length ? product.colors : ['Blue', 'Red', 'Black', 'Green']).map((color) => (
                     <SelectItem key={color} value={color}>{color}</SelectItem>
                   ))}
                 </SelectContent>

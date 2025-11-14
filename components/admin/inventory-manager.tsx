@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { mutate as globalMutate } from 'swr'
 import { useToast } from "@/hooks/use-toast"
 import { useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -93,7 +94,18 @@ export default function InventoryManager() {
       body: JSON.stringify({ _id, ...update }),
     })
     setEditingProduct(null)
+    // update local admin list and notify public product list to revalidate
     fetchProducts()
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('kiran-products')
+        bc.postMessage({ type: 'product:updated', id: _id, payload: update })
+        bc.close()
+      }
+    } catch (e) {
+      console.debug('Broadcast failed', e)
+    }
+    try { globalMutate('/api/products') } catch (e) { /* noop */ }
   }
 
   const handleDeleteProduct = async (_id: string) => {
@@ -103,6 +115,14 @@ export default function InventoryManager() {
       body: JSON.stringify({ _id }),
     })
     fetchProducts()
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('kiran-products')
+        bc.postMessage({ type: 'product:deleted', id: _id })
+        bc.close()
+      }
+    } catch (e) { console.debug('Broadcast failed', e) }
+    try { globalMutate('/api/products') } catch (e) { }
   }
   const fetchProducts = () => {
     setLoading(true)
@@ -118,6 +138,25 @@ export default function InventoryManager() {
   React.useEffect(() => {
     fetchProducts()
   }, [])
+
+  // Close Add dialog on Escape for the custom modal
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isAddDialogOpen) setIsAddDialogOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isAddDialogOpen])
+
+  // Prevent background scrolling when modal is open
+  React.useEffect(() => {
+    if (isAddDialogOpen) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+    return
+  }, [isAddDialogOpen])
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -156,17 +195,40 @@ export default function InventoryManager() {
             // Use the returned URL for the preview so admin sees the final image that will be saved
             setImagePreview(imageUrl)
           } else {
-            console.error("Upload succeeded but no URL returned");
-            alert("Image uploaded but no URL returned. Using placeholder instead.");
+            console.error("Upload succeeded but no URL returned", data);
+            // fallback: convert file to data URL and use that so product still has an image
+            const dataUrl = await fileToDataUrl(file)
+            imageUrl = dataUrl
+            setImagePreview(imageUrl)
+            toast({ title: 'Upload returned no URL', description: 'Stored image as inline data URL.' })
           }
         } else {
-          const text = await res.text()
-          console.error("Failed to upload image", text);
-          alert("Failed to upload image. Using placeholder instead.");
+          const contentType = res.headers.get('content-type') || ''
+          let errBody = ''
+          try {
+            if (contentType.includes('application/json')) errBody = JSON.stringify(await res.json())
+            else errBody = await res.text()
+          } catch (e) { errBody = 'Failed to read error body' }
+          console.error("Failed to upload image", res.status, errBody);
+          // fallback: convert file to data URL so the product still gets an image
+          const dataUrl = await fileToDataUrl(file)
+          imageUrl = dataUrl
+          setImagePreview(imageUrl)
+          toast({ title: 'Upload failed', description: `Upload failed (${res.status}). Using inline image instead.` })
         }
-      } catch (error) {
+        } catch (error) {
         console.error("Error uploading image:", error);
-        alert("Error uploading image. Please enter an image URL instead.");
+        // try fallback to inline data URL so admin can continue
+        try {
+          const dataUrl = await fileToDataUrl(file)
+          imageUrl = dataUrl
+          setImagePreview(imageUrl)
+          toast({ title: 'Upload error', description: 'Could not upload file; using inline image instead.' })
+        } catch (e) {
+          console.error('Failed to create data URL fallback', e)
+          toast({ title: 'Upload error', description: 'Could not upload file and failed to create inline fallback. Please paste an image URL.' })
+          return
+        }
       }
     }
 
@@ -201,29 +263,43 @@ export default function InventoryManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
       });
-      const text = await res.text();
-      let ok = res.ok
+
+      // Try to parse JSON response for helpful error messages
+      let body
       try {
-        // try parse JSON
-        const json = JSON.parse(text)
-        console.debug('Create product response JSON:', json)
+        body = await res.json()
       } catch (e) {
-        console.debug('Create product response text:', text)
+        const text = await res.text()
+        body = { error: text }
       }
-      if (!ok) {
-        throw new Error(text || "Failed to add product")
+
+      if (!res.ok) {
+        console.error('Create product failed', body)
+        const message = body?.error || body?.message || 'Server returned an error while creating the product.'
+        toast({ title: 'Create product failed', description: String(message) })
+        return
       }
-      // Show toast on success
+
+      // Success
       toast({
         title: "Product Added",
         description: `Product '${product.name}' was added successfully!`,
         duration: 2500,
-        // If your toast supports a 'variant' or 'type', use it here, e.g. variant: "success"
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding product:", err);
-      alert("Failed to add product. Please check your input and try again.");
+      toast({ title: 'Create product failed', description: err?.message || 'Failed to add product. Please check your input and try again.' })
       return;
+    }
+
+    // small helper to convert a File to data URL (used as fallback when upload fails)
+    async function fileToDataUrl(file: File) {
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = (e) => reject(e)
+        reader.readAsDataURL(file)
+      })
     }
 
     setNewProduct({ name: "", price: "", originalPrice: "", category: "", subcategory: "", stock: "", description: "", image: "" });
@@ -232,7 +308,16 @@ export default function InventoryManager() {
     setIsAddDialogOpen(false);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    // refresh admin list and notify public product list clients to revalidate
     fetchProducts();
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('kiran-products')
+        bc.postMessage({ type: 'product:created', payload: product })
+        bc.close()
+      }
+    } catch (e) { console.debug('Broadcast failed', e) }
+    try { globalMutate('/api/products') } catch (e) { }
   }
 
   return (
@@ -242,174 +327,227 @@ export default function InventoryManager() {
           <h2 className="text-2xl font-bold text-gray-900">Inventory</h2>
           <p className="text-gray-600">Add and manage your product inventory</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-xs p-4 rounded-lg shadow-lg">
-            <DialogHeader className="mb-2">
-              <DialogTitle className="text-lg font-semibold text-center">Add New Product</DialogTitle>
-              <DialogDescription className="text-center text-gray-500">Add a new product to your inventory</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <Label htmlFor="product-name" className="text-xs">Product Name</Label>
-                <Input
-                  id="product-name"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="Enter product name"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="product-price" className="text-xs">Price (₹)</Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    value={newProduct.price}
-                    onChange={(e) => setNewProduct((prev) => ({ ...prev, price: e.target.value }))}
-                    placeholder="2499"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="product-original-price" className="text-xs">Original Price (₹)</Label>
-                  <Input
-                    id="product-original-price"
-                    type="number"
-                    value={newProduct.originalPrice}
-                    onChange={(e) => setNewProduct((prev) => ({ ...prev, originalPrice: e.target.value }))}
-                    placeholder="2999"
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
+        <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="product-sizes" className="text-xs">Available Sizes</Label>
-                  <Input
-                    id="product-sizes"
-                    value={newSizesText}
-                    onChange={(e) => setNewSizesText(e.target.value)}
-                    placeholder="e.g. XS, S, M, L, XL"
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="product-colors" className="text-xs">Available Colors</Label>
-                  <Input
-                    id="product-colors"
-                    value={newColorsText}
-                    onChange={(e) => setNewColorsText(e.target.value)}
-                    placeholder="e.g. Blue, Pink, Green"
-                    className="h-8 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="product-category" className="text-xs">Category</Label>
-                <Select
-                  value={newProduct.category}
-                  onValueChange={(value) => setNewProduct((prev) => ({ ...prev, category: value }))}
+        {isAddDialogOpen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setIsAddDialogOpen(false)} />
+            <div className="relative w-full max-w-5xl mx-4">
+              <div className="bg-white rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-auto">
+                <button
+                  onClick={() => setIsAddDialogOpen(false)}
+                  className="absolute right-6 top-6 text-gray-400 hover:text-gray-600 rounded-md p-1"
+                  aria-label="Close dialog"
                 >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category} className="text-sm">
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="product-subcategory" className="text-xs">Subcategory</Label>
-                <Select
-                  value={newProduct.subcategory || ""}
-                  onValueChange={(value) => setNewProduct((prev) => ({ ...prev, subcategory: value }))}
-                >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Select subcategory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subcategories.map((subcategory) => (
-                      <SelectItem key={subcategory} value={subcategory} className="text-sm">
-                        {subcategory}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="product-stock" className="text-xs">Stock Quantity</Label>
-                <Input
-                  id="product-stock"
-                  type="number"
-                  value={newProduct.stock}
-                  onChange={(e) => setNewProduct((prev) => ({ ...prev, stock: e.target.value }))}
-                  placeholder="50"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="product-description" className="text-xs">Description</Label>
-                <Textarea
-                  id="product-description"
-                  value={newProduct.description}
-                  onChange={(e) => setNewProduct((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Product description..."
-                  className="text-sm min-h-[48px]"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="product-image" className="text-xs">Product Image</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    id="product-image"
-                    value={newProduct.image}
-                    onChange={(e) => setNewProduct((prev) => ({ ...prev, image: e.target.value }))}
-                    placeholder="Paste image URL or upload"
-                    className="h-8 text-sm"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    style={{ width: 70 }}
-                    className="text-xs"
-                    onChange={e => {
-                      if (e.target.files && e.target.files[0]) {
-                        const url = URL.createObjectURL(e.target.files[0])
-                        setImagePreview(url)
-                      } else {
-                        setImagePreview(null)
-                      }
-                    }}
-                  />
+                  ✕
+                </button>
+                <div className="mb-3 text-center">
+                  <h3 className="text-2xl font-semibold">Add New Product</h3>
+                  <p className="text-sm text-gray-500">Add a new product to your inventory</p>
                 </div>
-                {imagePreview && (
-                  <div className="mt-1 flex justify-center">
-                    {/* Use a standard <img> for preview to support blob/object URLs and local /uploads paths reliably */}
-                    <img src={imagePreview} alt="Preview" width={128} height={96} className="rounded border object-contain" />
+
+                <form onSubmit={(e) => { e.preventDefault(); handleAddProduct(); }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Left: form (spans 2 on md) */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="product-name" className="text-sm font-medium">Product Name</Label>
+                      <Input
+                        id="product-name"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="Enter product name"
+                        className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="product-price" className="text-sm font-medium">Price (₹)</Label>
+                        <Input
+                          id="product-price"
+                          type="number"
+                          value={newProduct.price}
+                          onChange={(e) => setNewProduct((prev) => ({ ...prev, price: e.target.value }))}
+                          placeholder="2499"
+                          className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="product-original-price" className="text-sm font-medium">Original Price (₹)</Label>
+                        <Input
+                          id="product-original-price"
+                          type="number"
+                          value={newProduct.originalPrice}
+                          onChange={(e) => setNewProduct((prev) => ({ ...prev, originalPrice: e.target.value }))}
+                          placeholder="2999"
+                          className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="product-sizes" className="text-sm font-medium">Available Sizes</Label>
+                        <Input
+                          id="product-sizes"
+                          value={newSizesText}
+                          onChange={(e) => setNewSizesText(e.target.value)}
+                          placeholder="e.g. XS, S, M, L, XL"
+                          className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="product-colors" className="text-sm font-medium">Available Colors</Label>
+                        <Input
+                          id="product-colors"
+                          value={newColorsText}
+                          onChange={(e) => setNewColorsText(e.target.value)}
+                          placeholder="e.g. Blue, Pink, Green"
+                          className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="product-category" className="text-xs">Category</Label>
+                      <Select
+                        value={newProduct.category}
+                        onValueChange={(value) => setNewProduct((prev) => ({ ...prev, category: value }))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category} value={category} className="text-sm">
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="product-subcategory" className="text-xs">Subcategory</Label>
+                      <Select
+                        value={newProduct.subcategory || ""}
+                        onValueChange={(value) => setNewProduct((prev) => ({ ...prev, subcategory: value }))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue placeholder="Select subcategory" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subcategories.map((subcategory) => (
+                            <SelectItem key={subcategory} value={subcategory} className="text-sm">
+                              {subcategory}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="product-stock" className="text-xs">Stock Quantity</Label>
+                      <Input
+                        id="product-stock"
+                        type="number"
+                        value={newProduct.stock}
+                        onChange={(e) => setNewProduct((prev) => ({ ...prev, stock: e.target.value }))}
+                        placeholder="50"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="product-description" className="text-xs">Description</Label>
+                      <Textarea
+                        id="product-description"
+                        value={newProduct.description}
+                        onChange={(e) => setNewProduct((prev) => ({ ...prev, description: e.target.value }))}
+                        placeholder="Product description..."
+                        className="text-sm min-h-[48px]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="product-image" className="text-sm font-medium">Product Image</Label>
+                      <div className="flex gap-2 items-start">
+                        <div className="flex-1">
+                          <Input
+                            id="product-image"
+                            value={newProduct.image}
+                            onChange={(e) => setNewProduct((prev) => ({ ...prev, image: e.target.value }))}
+                            placeholder="Paste image URL or upload"
+                            className="h-11 text-sm rounded-md border-gray-200 shadow-sm"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF — up to 5MB. If upload fails we use an inline preview.</p>
+                        </div>
+                        <div>
+                          <label className="inline-block px-3 py-2 bg-white border border-dashed rounded-md text-sm cursor-pointer hover:bg-gray-50">
+                            Choose File
+                            <input
+                              type="file"
+                              accept="image/*"
+                              ref={fileInputRef}
+                              className="hidden"
+                              onChange={e => {
+                                if (e.target.files && e.target.files[0]) {
+                                  const url = URL.createObjectURL(e.target.files[0])
+                                  setImagePreview(url)
+                                } else {
+                                  setImagePreview(null)
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      {imagePreview && (
+                        <div className="mt-2 flex justify-start">
+                          <div className="w-48 h-36 rounded-md overflow-hidden border border-gray-100 shadow-sm bg-gray-50 flex items-center justify-center">
+                            <img src={imagePreview} alt="Preview" className="object-contain max-h-full max-w-full" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button variant="ghost" onClick={() => setIsAddDialogOpen(false)} className="mr-3">Cancel</Button>
+                      <Button type="submit" size="sm" className="w-36 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 h-10 text-sm">
+                        Add Product
+                      </Button>
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className="flex justify-center mt-2">
-                <Button size="sm" onClick={handleAddProduct} className="bg-blue-600 hover:bg-blue-700 w-28 h-8 text-sm">
-                  Add Product
-                </Button>
+
+                  {/* Right: preview card */}
+                  <div className="md:col-span-1">
+                    <div className="border rounded-lg p-4 bg-gray-50 h-full flex flex-col">
+                      <div className="w-full h-44 rounded-md overflow-hidden bg-white flex items-center justify-center mb-3">
+                        <img src={imagePreview || "/placeholder.svg"} alt="Preview" className="object-contain max-h-full max-w-full" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 truncate">{newProduct.name || "Product name"}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{newProduct.category || "Category"} • {newProduct.subcategory || "Subcategory"}</p>
+                        <div className="mt-3">
+                          <div className="flex gap-2 flex-wrap">
+                            {(newSizesText ? newSizesText.split(',').map(s=>s.trim()).filter(Boolean) : []).map(s => (
+                              <Badge key={s} className="text-xs">{s}</Badge>
+                            ))}
+                            {(!newSizesText || newSizesText.split(',').filter(Boolean).length===0) && (
+                              <span className="text-xs text-gray-400">XS S M L XL</span>
+                            )}
+                          </div>
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {(newColorsText ? newColorsText.split(',').map(c=>c.trim()).filter(Boolean) : []).map(c => (
+                              <span key={c} className="px-2 py-0.5 rounded-full text-xs border bg-white">{c}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </form>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        )}
       </div>
       <Card>
         <CardContent className="pt-6">
@@ -648,7 +786,7 @@ export default function InventoryManager() {
                   />
                 </div>
               </div>
-              <Button onClick={handleEditProduct} className="w-full bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleEditProduct} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 h-10">
                 Save Changes
               </Button>
             </div>

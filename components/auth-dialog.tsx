@@ -235,9 +235,9 @@ export function AuthDialog({ open: controlledOpen, onOpenChange }: AuthDialogPro
             </form>
 
             <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-              <p className="font-medium mb-1">Demo Accounts:</p>
-              <p>Customer: customer@example.com / password</p>
-              <p>Admin: admin@kiransales.com / admin123</p>
+              <p className="font-medium mb-1">Thank You For Choosing Us!!!</p>
+              {/* <p>Customer: customer@example.com / password</p>
+              <p>Admin: admin@kiransales.com / admin123</p> */}
             </div>
           </TabsContent>
 

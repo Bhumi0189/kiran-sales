@@ -41,18 +41,27 @@ const dummyImages = [
 
 // Helper function to get a valid image for a product
 function getProductImage(product: any, index: number): string {
-  if (product.image && 
-      typeof product.image === "string" && 
-      product.image.trim() !== "" && 
-      product.image !== "/placeholder.svg" &&
-      !product.image.includes("undefined")) {
-    return product.image;
+  const resolve = (img: any) => {
+    if (!img) return undefined
+    if (typeof img === 'string' && img.trim() !== '' && img !== '/placeholder.svg' && !img.includes('undefined')) return img
+    if (Array.isArray(img)) {
+      const s = img.find((i: any) => typeof i === 'string' && i.trim() !== '' )
+      if (s) return s
+      if (img.length > 0 && typeof img[0] === 'object' && img[0]?.url) return img[0].url
+    }
+    if (typeof img === 'object' && img?.url) return img.url
+    return undefined
   }
-  
+
+  const maybe = resolve(product.image)
+  if (maybe) return maybe
+
   const productId = product._id || product.id || index;
   const hashCode = productId.toString().split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
   return dummyImages[Math.abs(hashCode) % dummyImages.length];
 }
+
+
 
 function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,6 +75,21 @@ function ProductsPage() {
   const { data: productsRaw, error, isLoading } = useSWR("/api/products", fetcher);
   // Defensive: ensure products is always an array
   const products = Array.isArray(productsRaw) ? productsRaw : [];
+
+  // Listen for product events broadcast by admin UI (BroadcastChannel) and revalidate SWR
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      if (!('BroadcastChannel' in window)) return
+      const bc = new BroadcastChannel('kiran-products')
+      bc.onmessage = (_ev) => {
+        try { globalMutate('/api/products') } catch (e) { console.debug('SWR mutate failed', e) }
+      }
+      return () => bc.close()
+    } catch (e) {
+      console.debug('BroadcastChannel not available', e)
+    }
+  }, [])
 
   // Filter and sort products
   const filteredProducts = products
@@ -207,8 +231,28 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [imageSrc, setImageSrc] = useState<string>(fallbackImage)
   const [imageError, setImageError] = useState(false)
-  const [selectedSize, setSelectedSize] = useState(sizes[0]);
-  const [selectedColor, setSelectedColor] = useState(colors[0]);
+  // Selected size/color should reflect product-level available options when provided
+  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
+
+  // Derive per-product options (fallback to global defaults)
+  const productSizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : sizes
+  const productColors = Array.isArray(product.colors) && product.colors.length > 0 ? product.colors : colors
+
+  // Keep selected size/color in sync with backend data when product updates
+  useEffect(() => {
+    setSelectedSize(prev => {
+      if (prev && productSizes.includes(prev)) return prev
+      return productSizes[0] || sizes[0]
+    })
+  }, [product.sizes?.length, productSizes])
+
+  useEffect(() => {
+    setSelectedColor(prev => {
+      if (prev && productColors.includes(prev)) return prev
+      return productColors[0] || colors[0]
+    })
+  }, [product.colors?.length, productColors])
 
   // Fetch wishlist for logged-in user
   const wishlistKey = state.user ? `/api/wishlist?email=${encodeURIComponent(state.user.email)}` : null
@@ -494,7 +538,7 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
               onChange={(e) => setSelectedSize(e.target.value)}
               className="border rounded px-2 py-1"
             >
-              {sizes.map((size) => (
+              {productSizes.map((size: string) => (
                 <option key={size} value={size}>{size}</option>
               ))}
             </select>
@@ -506,7 +550,7 @@ function ProductCard({ product, fallbackImage, onLoginClick }: { product: any; f
               onChange={(e) => setSelectedColor(e.target.value)}
               className="border rounded px-2 py-1"
             >
-              {colors.map((color) => (
+              {productColors.map((color: string) => (
                 <option key={color} value={color}>{color}</option>
               ))}
             </select>

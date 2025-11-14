@@ -23,12 +23,24 @@ export async function POST(request: NextRequest) {
 
   // Ensure uploads directory exists
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
-  await mkdir(uploadsDir, { recursive: true })
-
-  // Save to public/uploads directory
-  await writeFile(filepath, buffer)
-    
+  try {
+    await mkdir(uploadsDir, { recursive: true })
+    // Save to public/uploads directory
+    await writeFile(filepath, buffer)
     return NextResponse.json({ url: `/uploads/${filename}` })
+  } catch (fsErr) {
+    // Many serverless hosts (Vercel) don't allow writing to disk. In that case
+    // return a data URL so the client can still display/store the image.
+    try {
+      const base64 = buffer.toString('base64')
+      const contentType = (file as any).type || 'application/octet-stream'
+      const dataUrl = `data:${contentType};base64,${base64}`
+      return NextResponse.json({ url: dataUrl })
+    } catch (innerErr) {
+      console.error('Failed to fallback to data URL for upload:', innerErr)
+      return NextResponse.json({ error: 'Failed to save uploaded file' }, { status: 500 })
+    }
+  }
   } catch (error) {
     console.error('Error uploading file:', error)
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
