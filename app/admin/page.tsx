@@ -8,7 +8,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function AdminDashboardPage() {
   const { data: stats, error, isLoading, mutate } = useSWR("/api/admin/dashboard", fetcher, {
-    refreshInterval: 30000, // Refresh every 30 seconds
+    refreshInterval: 10000, // Refresh every 10 seconds
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
   })
